@@ -3038,85 +3038,54 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI: Processa os dados em cache e renderiza o ranking de EFICIÊNCIA das Transportadoras
- * 📊 LOGICA: Barra roxa representa % de Romaneios Concluídos vs. Pendentes/Parciais
- * 🔒 RESTRITO: Disponível exclusivamente para usuários com TipoAcesso === TELEFONICA ou ADM
- */
-/**
- * ENGINE BI: Processa os dados em cache e renderiza o ranking de EFICIÊNCIA ou BACKLOG CRÍTICO
+ * ENGINE BI V2.1: Processa dados em cache e renderiza o mini-dashboard polido de Transportadoras
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvo) {
-  // Resgata os privilégios e a empresa vinculada diretamente do localStorage
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
 
-  // Valida se o operador possui dados carregados em cache na memória RAM antes de processar
   if (!CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO.length === 0) {
     alert("⚠️ Por favor, realize uma busca de dados antes de explorar o ranking das Transportadoras.");
     return;
   }
 
-  console.log(`[BI ENGINE V2] Processando métricas filtradas para o perfil: ${nivelAcessoLogado} | Alvo: ${statusAlvo}`);
+  console.log(`[BI UX UPDATE] Renderizando malha gráfica polida para o alvo: ${statusAlvo}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📐 CÁLCULO DINÂMICO DA DATA DE ONTEM NO FORMATO ISO (YYYYMMDD)
   const hoje = new Date();
   const objetoOntem = new Date(hoje);
   objetoOntem.setDate(hoje.getDate() - 1);
-  
   const anoOntem = objetoOntem.getFullYear();
   const mesOntem = (objetoOntem.getMonth() + 1).toString().padStart(2, '0');
   const diaOntem = objetoOntem.getDate().toString().padStart(2, '0');
   const dataOntemISO = `${anoOntem}${mesOntem}${diaOntem}`;
 
-  // 🚀 LAÇO DE AGREGAÇÃO ULTRA-VELOZ COM TRAVAS DE PERFIL EM MEMÓRIA RAM
   CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
     const nomeTransp = (linha.transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || "N/A").toString().trim().toUpperCase();
     const statusCarga = (linha.status || "").toString().toUpperCase();
     const volumesCarga = Number(linha.volumes) || 0;
     
-    // -------------------------------------------------------------------------
-    // 🔒 GOVERNANÇA DE DADOS NATIVA POR PERFIL (PRIVILÉGIO MÍNIMO)
-    // -------------------------------------------------------------------------
-    // Regra A: Se o perfil for TRANSPORTADOR, esconde dados de empresas concorrentes
-    if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) {
-      return; 
-    }
-    
-    // Regra B: Se o perfil for OPERADOR, vê todas as transportadoras, mas apenas da sua demanda emitida
-    if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) {
-      return; 
-    }
-    // -------------------------------------------------------------------------
+    // Governança de dados de terceiros
+    if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
+    if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // Converte a data de importação registrada na linha para Texto ISO comparável (YYYYMMDD)
     let isoLinhaImport = "";
     if (linha.dtImport && linha.dtImport !== "N/A") {
       const textoData = linha.dtImport.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
-      if (partes.length === 3) {
-        isoLinhaImport = partes[2] + partes[1].toString().padStart(2, '0') + partes[0].toString().padStart(2, '0');
-      }
+      if (partes.length === 3) isoLinhaImport = partes[2] + partes[1].padStart(2, '0') + partes[0].padStart(2, '0');
     }
 
     const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1;
 
-    // Inicializa a estrutura de dados da transportadora se for a primeira ocorrência
     if (!mapaAgrupamentoTransp[nomeTransp]) {
-      mapaAgrupamentoTransp[nomeTransp] = {
-        totalRomaneios: 0,
-        concluidores: 0,
-        pendentesEParciais: 0,
-        volumesTotais: 0,
-        backlogLotes: 0
-      };
+      mapaAgrupamentoTransp[nomeTransp] = { totalRomaneios: 0, concluidores: 0, pendentesEParciais: 0, volumesTotais: 0, backlogLotes: 0 };
     }
 
-    // Acumula os dados gerais de eficiência utilizados nas barras de progresso
     mapaAgrupamentoTransp[nomeTransp].totalRomaneios += 1;
     mapaAgrupamentoTransp[nomeTransp].volumesTotais += volumesCarga;
     
@@ -3124,36 +3093,23 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       mapaAgrupamentoTransp[nomeTransp].concluidores += 1;
     } else {
       mapaAgrupamentoTransp[nomeTransp].pendentesEParciais += 1;
-      // Se for pendente/parcial e a data de importação for de ontem para trás, incrementa o backlog
-      if (isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO) {
-        mapaAgrupamentoTransp[nomeTransp].backlogLotes += 1;
-      }
+      if (isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO) mapaAgrupamentoTransp[nomeTransp].backlogLotes += 1;
     }
 
-    // Contabiliza o total global do filtro para cálculo do percentual do ranking
     if (statusAlvo === "BACKLOG") {
-      if (!ehConcluido && isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO) {
-        totalGeralAcumuladoFiltro += 1;
-      }
+      if (!ehConcluido && isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO) totalGeralAcumuladoFiltro += 1;
     } else {
       if (statusAlvo !== "TODOS" && statusCarga.indexOf(statusAlvo) === -1) return;
       totalGeralAcumuladoFiltro += 1;
     }
   });
 
-  // Converte o mapa em array estruturado e calcula os índices matemáticos
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
-    
-    // Se o alvo for o card de Backlog, a métrica de classificação muda para a quantidade de lotes atrasados
     const totalLotesFiltro = statusAlvo === "BACKLOG" ? dados.backlogLotes : dados.totalRomaneios;
-    const pctEficiencia = dados.totalRomaneios > 0 
-      ? ((dados.concluidores / dados.totalRomaneios) * 100).toFixed(1) 
-      : "0.0";
-      
-    const pctRelativoBacklog = totalGeralAcumuladoFiltro > 0
-      ? ((dados.backlogLotes / totalGeralAcumuladoFiltro) * 100).toFixed(1)
-      : "0.0";
+    
+    const pctEficiencia = dados.totalRomaneios > 0 ? ((dados.concluidores / dados.totalRomaneios) * 100).toFixed(1) : "0.0";
+    const pctRelativoBacklog = totalGeralAcumuladoFiltro > 0 ? ((dados.backlogLotes / totalGeralAcumuladoFiltro) * 100).toFixed(1) : "0.0";
 
     return {
       transportadora: nome,
@@ -3165,9 +3121,8 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       lotesExibicao: totalLotesFiltro,
       percentualBarra: statusAlvo === "BACKLOG" ? pctRelativoBacklog : pctEficiencia
     };
-  }).filter(item => item.lotesExibicao > 0); // Expurga transportadoras que não possuem lotes no status clicado
+  }).filter(item => item.lotesExibicao > 0);
 
-  // 🏆 CRITÉRIO DE ORDENAÇÃO: Se for Backlog, ordena pelo maior atraso. Se for outro card, ordena por eficiência.
   if (statusAlvo === "BACKLOG") {
     rankingTransp.sort((a, b) => b.backlog - a.backlog);
   } else {
@@ -3179,68 +3134,71 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
   
   if (txtTituloModal) {
     txtTituloModal.innerText = statusAlvo === "BACKLOG"
-      ? `🚨 CLASSIFICAÇÃO DE INFRAÇÕES: BACKLOG CRÍTICO ACUMULADO`
-      : `KPI EFICIÊNCIA: TRANSPORTADORAS x ROMANEIOS AUDITADOS (${statusAlvo})`;
+      ? `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS`
+      : `🎛️ PRODUTIVIDADE: TAXA DE CONCLUSÃO DAS TRANSPORTADORAS (${statusAlvo})`;
   }
   
   if (containerRanking) {
     containerRanking.innerHTML = "";
     
     rankingTransp.forEach((item, index) => {
-      const divLinha = document.createElement("div");
-      divLinha.className = "diagnostico-item";
-      divLinha.style.padding = "14px 0";
-      divLinha.style.display = "flex";
-      divLinha.style.justifyContent = "space-between";
-      divLinha.style.alignItems = "center";
-      divLinha.style.borderBottom = "1px solid #E5E5EA";
+      const divCard = document.createElement("div");
+      // 🎨 Aplicação de estilos Nu-Style Premium (Cartão Elevado de alta legibilidade)
+      divCard.style.background = "#ffffff";
+      divCard.style.padding = "14px 18px";
+      divCard.style.borderRadius = "10px";
+      divCard.style.boxShadow = "0 2px 12px rgba(0, 0, 0, 0.03)";
+      divCard.style.border = "1px solid #E5E5EA";
+      divCard.style.display = "flex";
+      divCard.style.justifyContent = "space-between";
+      divCard.style.alignItems = "center";
+      divCard.style.width = "100%;";
+      divCard.style.boxSizing = "border-box";
       
-      // Calibração de cores: Vermelho Escuro se for o card de Backlog, Verde Eficiência para os demais
-      const corBarra = statusAlvo === "BACKLOG" ? "#8B0000" : "#34C759";
+      const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#34C759"; 
+      const corFundoBarra = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(52, 199, 89, 0.1)";
       
-      // Bloco condicional para renderizar as colunas de dados com base no card clicado
-      let htmlMetricasDireita = "";
+      let htmlDadosDireita = "";
       if (statusAlvo === "BACKLOG") {
-        htmlMetricasDireita = `
-          <span style="color: #8B0000;" title="Romaneios em Atraso">${item.backlog} Rom</span>
-          <span style="color: #D2D2D7; margin: 0 4px;">|</span> 
-          <span style="color: #6E6E73;" title="Total de Volumes da Transportadora">${item.volumes.toLocaleString()} Vol</span>
+        htmlDadosDireita = `
+          <span style="color: #FF3B30; font-weight: 700;">${item.backlog}</span><span style="color:#8E8E93; font-weight:500;"> Rom</span>
+          <span style="color: #E5E5EA; margin: 0 6px;">|</span> 
+          <span style="color: #1C1C1E; font-weight: 700;">${item.volumes.toLocaleString()}</span><span style="color:#8E8E93; font-weight:500;"> Vol</span>
         `;
       } else {
         htmlMetricasDireita = `
-          <span style="color: #34C759;" title="Romaneios Concluídos">${item.concluidos}</span> 
+          <span style="color: #34C759; font-weight:700;">${item.concluidos}</span><span style="color:#8E8E93; font-weight:500;"> OK</span> 
           <span style="color: #D2D2D7; margin: 0 1px;">/</span> 
-          <span style="color: #FF3B30;" title="Romaneios Pendentes ou Parciais">${item.pendentes}</span>
-          <span style="color: #D2D2D7; margin: 0 4px;">|</span> 
-          <span style="color: #6E6E73;" title="Total de Volumes Movimentados">${item.volumes.toLocaleString()} Vol</span>
+          <span style="color: #FF3B30; font-weight:700;">${item.pendentes}</span><span style="color:#8E8E93; font-weight:500;"> PD</span>
+          <span style="color: #E5E5EA; margin: 0 6px;">|</span> 
+          <span style="color: #1C1C1E; font-weight:700;">${item.volumes.toLocaleString()}</span><span style="color:#8E8E93; font-weight:500;"> Vol</span>
         `;
       }
 
-      divLinha.innerHTML = `
-        <!-- Coluna 1: Posição no Ranking e Nome -->
-        <div style="display: flex; align-items: center; gap: 12px; width: 35%;">
-          <span style="font-weight: 800; color: ${corBarra}; min-width: 20px;">#${index + 1}</span>
-          <span style="font-weight: 700; color: #1D1D1F; font-size: 0.85rem; font-family: sans-serif;">${item.transportadora}</span>
+      divCard.innerHTML = `
+        <!-- Transportadora e Posição -->
+        <div style="display: flex; align-items: center; gap: 14px; width: 35%;">
+          <span style="font-size: 0.78rem; font-weight: bold; background: ${corFundoBarra}; color: ${corBarra}; padding: 3px 8px; border-radius: 6px; min-width: 18px; text-align: center;">${index + 1}</span>
+          <span style="font-weight: 700; color: #1C1C1E; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">${item.transportadora}</span>
         </div>
         
-        <!-- Coluna 2: Gráfico Nu-Style de Progresso -->
-        <div style="width: 40%; display: flex; align-items: center; gap: 10px;">
-          <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden;">
-            <div style="width: ${item.percentualBarra}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s;"></div>
+        <!-- Barra de Carregamento Equalizada -->
+        <div style="width: 38%; display: flex; align-items: center; gap: 12px;">
+          <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+            <div style="width: ${item.percentual}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s ease-out;"></div>
           </div>
-          <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 45px; text-align: right; font-family: sans-serif;">${item.percentualBarra}%</span>
+          <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 45px; text-align: right; font-family: monospace;">${item.percentual}%</span>
         </div>
         
-        <!-- Coluna 3: Desdobramento Sincronizado de Lotes -->
-        <div style="width: 25%; text-align: right; font-weight: bold; color: #222222; font-size: 0.78rem; font-family: sans-serif; white-space: nowrap;">
-          ${htmlMetricasDireita}
+        <!-- Indicadores Unificados -->
+        <div style="width: 27%; text-align: right; font-size: 0.80rem; font-family: -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap;">
+          ${statusAlvo === "BACKLOG" ? htmlDadosDireita : htmlMetricasDireita}
         </div>
       `;
-      containerRanking.appendChild(divLinha);
+      containerRanking.appendChild(divCard);
     });
   }
 
-  // Abre visualmente o modal de BI
   const modalKpi = document.getElementById("modalKpiDetalhado");
   if (modalKpi) {
     modalKpi.style.setProperty("display", "flex", "important");
@@ -3765,24 +3723,32 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     </div>
 </div>
 
-<!-- 📌 MODAL DE BI: CLASSIFICAÇÃO DE MARKET SHARE POR TRANSPORTADORA -->
-<!-- 🔍 Localize a abertura do seu modal e mude o max-width: -->
-<div id="modalKpiDetalhado" class="modal-suporte" style="display: none; background: rgba(0,0,0,0.5);" onclick="document.getElementById('modalKpiDetalhado').style.display='none'">
-    <div class="modal-suporte-content" style="max-width: 650px; width: 95%; text-align: left; padding: 25px;" onclick="event.stopPropagation()">
+<!-- =========================================================================
+// 📊 NOVO MODAL DE BI PREMIUM: CLASSIFICAÇÃO E PRODUTIVIDADE DE TRANSPORTADORAS
+// ========================================================================= -->
+<div id="modalKpiDetalhado" class="modal-suporte" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.4); z-index: 999999; justify-content: center; align-items: center; backdrop-filter: blur(5px); transition: all 0.3s ease;" onclick="document.getElementById('modalKpiDetalhado').style.display='none'">
+    
+    <div class="modal-suporte-content" style="background: #ffffff; padding: 0; border-radius: 16px; max-width: 720px; width: 92%; text-align: left; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15); margin: auto; overflow: hidden; display: flex; flex-direction: column; max-height: 85vh; border: 1px solid #E5E5EA; transform: scale(1); animation: modalFadeIn 0.2s ease-out;" onclick="event.stopPropagation()">
         
-        <!-- Cabeçalho do Sub-Modal -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E5E5EA; padding-bottom: 12px; margin-bottom: 15px;">
-            <h4 id="txtTituloModalKpi" style="margin: 0; color: #333333; font-size: 0.90rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-family: sans-serif;">MARKET SHARE</h4>
-            <button onclick="document.getElementById('modalKpiDetalhado').style.display='none'" style="background: none; border: none; color: #8A05BE; font-weight: bold; cursor: pointer; font-size: 0.9rem; font-family: sans-serif;">Fechar</button>
+        <!-- 🟣 Cabeçalho Estilizado (Fixed Top) -->
+        <div style="background: #1C1C1E; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8A05BE;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.1rem;">📊</span>
+                <h4 id="txtTituloModalKpi" style="margin: 0; color: #FFFFFF; font-size: 0.88rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; font-family: 'Inter', sans-serif;">MARKET SHARE</h4>
+            </div>
+            <button onclick="document.getElementById('modalKpiDetalhado').style.display='none'" style="background: #3A3A3C; border: none; color: #FFFFFF; font-weight: 700; cursor: pointer; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 14px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.background='#48484A'" onmouseout="this.style.background='#3A3A3C'">Voltar</button>
         </div>
         
-        <!-- Lista do Ranking onde as barras roxas (Nu-Style) serão injetadas via JS -->
-        <div id="corpoTabelaRankingKpi" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column;">
-            <!-- Injetado dinamicamente via JavaScript -->
+        <!-- 📈 Corpo de Conteúdo com Rolagem Fluída -->
+        <div style="padding: 20px 24px; overflow-y: auto; flex-grow: 1; background-color: #F4F4F7;">
+            <div id="corpoTabelaRankingKpi" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                <!-- Injetado dinamicamente via JavaScript -->
+            </div>
         </div>
         
     </div>
 </div>
+
 
 
 <!-- Contêiner flutuante para os alertas do ecossistema -->
