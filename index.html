@@ -873,12 +873,16 @@
 	         <div class="kpi-card-subtext">Conferencia não iniciada</div>
          </div>
 
-	    <!-- 🚨 NOVO CARD 5: SESSÃO CRÍTICA DE BACKLOG RETROATIVO -->
-	    <div class="kpi-card-block" style="border-bottom: 4px solid #8B0000; background-color: #FFF5F5;" onclick="abrirDashboardKpiDetalhado('BACKLOG')">
-	        <div class="kpi-card-label" style="color: #8B0000; font-weight: bold;">🚨 BACKLOG CRÍTICO</div>
-	        <div class="kpi-card-counter" id="kpiBacklog" style="color: #8B0000; font-weight: 800;">0</div>
-	        <div class="kpi-card-subtext" style="color: #A34747;">Não finalizados de ontem para trás</div>
-	    </div>		
+		<!-- 🔍 Procure pelo card de Backlog no seu HTML e altere o subtexto para incluir a ID: -->
+		<div class="kpi-card-block" style="border-bottom: 4px solid #8B0000; background-color: #FFF5F5; cursor: pointer;" onclick="abrirDashboardKpiDetalhado('BACKLOG')">
+		    <div class="kpi-card-label" style="color: #8B0000; font-weight: bold;">🚨 BACKLOG CRÍTICO</div>
+		    <div class="kpi-card-counter" id="kpiBacklog" style="color: #8B0000; font-weight: 800;">0</div>
+		    <!-- 🚀 Subtexto dinâmico injetado via ID -->
+		    <div class="kpi-card-subtext" style="color: #A34747; font-size: 0.72rem !important;">
+		        Não finalizados de <span id="txtPeriodoBacklog" style="font-weight: 700;">... até ...</span>
+		    </div>
+		</div>
+	
         
     </div>
 
@@ -3007,13 +3011,60 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
     const elKpiParciais = document.getElementById("kpiParciais");
     const elKpiPendentes = document.getElementById("kpiPendentes");
     const elKpiBacklog = document.getElementById("kpiBacklog");
-
-	if (elKpiBacklog) elKpiBacklog.innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;  
+    if (elKpiBacklog) elKpiBacklog.innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;  
     if (elKpiTotal) elKpiTotal.innerText = resposta.kpiTotal || 0;
     if (elKpiConcluidos) elKpiConcluidos.innerText = resposta.kpiConcluidos || 0;
     if (elKpiParciais) elKpiParciais.innerText = resposta.kpiParciais || 0;
     if (elKpiPendentes) elKpiPendentes.innerText = resposta.kpiPendentes || 0;
     
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA: CÁLCULO E ATUALIZAÇÃO DO SUBTEXTO DINÂMICO DE DATAS
+    // =========================================================================
+    const elPeriodoBacklog = document.getElementById("txtPeriodoBacklog");
+    
+    if (elPeriodoBacklog && resposta.dadosSimplificados && resposta.dadosSimplificados.length > 0) {
+      let menorDataISO = "99999999"; 
+      let stringMenorDataBr = "";
+
+      // 📅 Captura a data de ontem no fuso horário local para servir de limite final (Last Date)
+      const hoje = new Date();
+      const ontem = new Date(hoje);
+      ontem.setDate(hoje.getDate() - 1);
+      
+      const diaOntem = ontem.getDate().toString().padStart(2, '0');
+      const mesOntem = (ontem.getMonth() + 1).toString().padStart(2, '0');
+      const anoOntem = ontem.getFullYear();
+      const stringOntemBr = `${diaOntem}/${mesOntem}/${anoOntem}`; // Sua Last Date
+
+      // Varre as cargas recebidas em busca do registro mais antigo da malha (First Date)
+      resposta.dadosSimplificados.forEach(linha => {
+        // Ignora se a carga foi concluída ou se a propriedade de data veio corrompida
+        if (linha.status === "CONCLUIDO" || !linha.dtImport || linha.dtImport === "N/A" || linha.status === "CANCELADO") return;
+
+        // Isola os 10 primeiros caracteres (DD/MM/YYYY) de forma limpa
+        const dataLinhaBr = linha.dtImport.toString().trim().substring(0, 10);
+        const partes = dataLinhaBr.split("/");
+        
+        if (partes.length === 3) {
+          const isoLinha = partes[2] + partes[1].padStart(2, '0') + partes[0].padStart(2, '0');
+          if (isoLinha < menorDataISO) {
+            menorDataISO = isoLinha;
+            stringMenorDataBr = dataLinhaBr; // Salva a First Date válida
+          }
+        }
+      });
+
+      // Se localizou alguma pendência antiga, renderiza a faixa de atraso na tela
+      if (stringMenorDataBr !== "") {
+        elPeriodoBacklog.innerText = `${stringMenorDataBr} até ${stringOntemBr}`;
+      } else {
+        elPeriodoBacklog.innerText = `${stringOntemBr} até ${stringOntemBr}`;
+      }
+    } else if (elPeriodoBacklog) {
+      elPeriodoBacklog.innerText = "... até ...";
+    }
+    // =========================================================================
+
     if (terminal) {
       let msgLog = `\n[SUCESSO] -> Sincronismo concluido.`;
       if (PERFIL_FILTRO_DASHBOARD) {
@@ -3031,6 +3082,9 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
     document.getElementById("kpiConcluidos").innerText = "0";
     document.getElementById("kpiParciais").innerText = "0";
     document.getElementById("kpiPendentes").innerText = "0";
+    if (document.getElementById("kpiBacklog")) document.getElementById("kpiBacklog").innerText = "0";
+    if (document.getElementById("txtPeriodoBacklog")) document.getElementById("txtPeriodoBacklog").innerText = "... até ...";
+    
     if (selectTransp) { selectTransp.innerHTML = '<option value="" selected>TODAS</option>'; selectTransp.disabled = false; }
     if (selectOperador) { selectOperador.innerHTML = '<option value="" selected>TODOS</option>'; selectOperador.disabled = false; }
   }
