@@ -3193,14 +3193,24 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
   // Ordena do maior acúmulo para o menor (Top-Down)
   rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
 
-  // Renderização e Injeção do layout de cartões Nu-Style Premium
+  // 🔍 Procure por este trecho dentro da função abrirDashboardKpiDetalhado:
   const containerRanking = document.getElementById("corpoTabelaRankingKpi");
   const txtTituloModal = document.getElementById("txtTituloModalKpi");
   
   if (txtTituloModal) {
-    txtTituloModal.innerText = statusAlvo === "BACKLOG"
-      ? `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (ONTEM PARA TRÁS)`
-      : `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvo}`;
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA: TÍTULO DO MODAL DINÂMICO COM JANELA DE DATAS DO CARD
+    // =========================================================================
+    if (statusAlvo === "BACKLOG") {
+      // Resgata o texto de período real calculado e exibido no subtexto do card
+      const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
+      const textoJanelaDatas = elPeriodoCard ? elPeriodoCard.innerText : "... até ...";
+      
+      txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${textoJanelaDatas})`;
+    } else {
+      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvo}`;
+    }
+    // =========================================================================
   }
   
   if (containerRanking) {
