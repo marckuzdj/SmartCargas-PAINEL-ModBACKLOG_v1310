@@ -3099,7 +3099,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V3.0: Processa os dados em cache e renderiza o ranking de BACKLOG ou EFICIÊNCIA das Transportadoras
+ * ENGINE BI V4.0: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 📊 UX DISPERSÃO: Desdobra as infrações de Backlog abrindo a quantidade por faixa de dias atrás (Ontem, 2d, 3d, 4d+)
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvo) {
@@ -3111,28 +3112,32 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     return;
   }
 
-  console.log(`[BI ENGINE V3.5] Renderizando ranking baseado nos novos critérios de Sincronismo. Alvo: ${statusAlvo}`);
+  console.log(`[BI UX DISPERSÃO] Compilando eixos de envelhecimento de carga para: ${statusAlvo}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📐 CÁLCULO DINÂMICO DE HOJE E ONTEM NO FORMATO ISO (YYYYMMDD) [14/10/2026]
+  // 📐 ENGENHARIA DE MATRIZ TEMPORAL HISTÓRICA (Cálculo de eixos retroativos com base em hoje [14/10/2026])
   const hoje = new Date();
-  const diaHoje = hoje.getDate().toString().padStart(2, '0');
-  const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
-  const anoHoje = hoje.getFullYear();
-  const dataHojeISO = `${anoHoje}${mesHoje}${diaHoje}`;
+  
+  const gerarTextoISOData = (deslocamentoDias) => {
+    const d = new Date(hoje);
+    d.setDate(hoje.getDate() - deslocamentoDias);
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${d.getFullYear()}${mes}${dia}`;
+  };
 
-  const objetoOntem = new Date(hoje);
-  objetoOntem.setDate(hoje.getDate() - 1);
-  const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${objetoOntem.getDate().toString().padStart(2, '0')}`;
+  const isoOntem = gerarTextoISOData(1);  // Ontem (13/10/2026)
+  const iso2Dias = gerarTextoISOData(2);  // 2 dias atrás (12/10/2026)
+  const iso3Dias = gerarTextoISOData(3);  // 3 dias atrás (11/10/2026)
 
   // Captura o estado dos inputs de data da tela de filtros para decisão de escopo
   const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 AGREGAÇÃO EM TEMPO DE EXECUÇÃO NA MEMÓRIA RAM
+  // 🚀 LAÇO ÚNICO EM MEMÓRIA RAM
   CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
     const nomeTransp = (linha.transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || "N/A").toString().trim().toUpperCase();
@@ -3153,32 +3158,43 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       }
     }
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: TRAVA DE CRITÉRIO TEMPORAL ADAPTATIVA (HOJE vs BACKLOG)
-    // =========================================================================
-    if (statusAlvo === "BACKLOG") {
-      // Se o alvo for Backlog, filtra estritamente as linhas carimbadas pelo servidor
-      if (statusCarga !== "BACKLOG") return;
-    } else {
-      // Para os 4 cards normais, se as caixas estiverem vazias, força olhar APENAS o dia de hoje
-      if (usarCorteEstritoHoje && isoLinhaImport !== dataHojeISO) {
-        return; // Descarta registros retroativos para espelhar perfeitamente o card
-      }
-      
-      // Filtro para os demais cartões normais
-      if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
-    }
-    // =========================================================================
-
     if (!mapaAgrupamentoTransp[nomeTransp]) {
-      mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0 };
+      mapaAgrupamentoTransp[nomeTransp] = { 
+        lotesMapeados: 0, 
+        volumes: 0,
+        ontemCount: 0,
+        doisDiasCount: 0,
+        tresDiasCount: 0,
+        quatroMaisDiasCount: 0
+      };
+    }
+
+    const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1;
+
+    if (statusAlvo === "BACKLOG") {
+      // Se o alvo for Backlog, processa estritamente o passivo carimbado do servidor
+      if (statusCarga !== "BACKLOG") return;
+
+      // Realiza a triagem e dispersão por faixa de atraso
+      if (isoLinhaImport === isoOntem) {
+        mapaAgrupamentoTransp[nomeTransp].ontemCount += 1;
+      } else if (isoLinhaImport === iso2Dias) {
+        mapaAgrupamentoTransp[nomeTransp].doisDiasCount += 1;
+      } else if (isoLinhaImport === iso3Dias) {
+        mapaAgrupamentoTransp[nomeTransp].tresDiasCount += 1;
+      } else if (isoLinhaImport !== "" && isoLinhaImport < iso3Dias) {
+        mapaAgrupamentoTransp[nomeTransp].quatroMaisDiasCount += 1;
+      }
+    } else {
+      // Filtros e travas de corte para os demais 4 cartões operacionais
+      if (usarCorteEstritoHoje && isoLinhaImport !== gerarTextoISOData(0)) return;
+      if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
     }
 
     mapaAgrupamentoTransp[nomeTransp].lotesMapeados += 1;
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
-
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
@@ -3186,33 +3202,28 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       transportadora: nome,
       romaneiosCount: dados.lotesMapeados,
       volumesCount: dados.volumes,
+      ontem: dados.ontemCount,
+      doisDias: dados.doisDiasCount,
+      tresDias: dados.tresDiasCount,
+      quatroMais: dados.quatroMaisDiasCount,
       percentual: totalGeralAcumuladoFiltro > 0 ? ((dados.lotesMapeados / totalGeralAcumuladoFiltro) * 100).toFixed(1) : "0.0"
     };
   }).filter(item => item.romaneiosCount > 0);
 
-  // Ordena do maior acúmulo para o menor (Top-Down)
+  // Ordenação decrescente baseada no volume de romaneios afetados
   rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
 
-  // 🔍 Procure por este trecho dentro da função abrirDashboardKpiDetalhado:
   const containerRanking = document.getElementById("corpoTabelaRankingKpi");
   const txtTituloModal = document.getElementById("txtTituloModalKpi");
   
   if (txtTituloModal) {
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: TÍTULO DINÂMICO DIÁRIO PARA OS CARDS OPERACIONAIS
-    // =========================================================================
     if (statusAlvo === "BACKLOG") {
       const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
-      const textoJanelaDatas = elPeriodoCard ? elPeriodoCard.innerText : "... até ...";
-      
-      txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${textoJanelaDatas})`;
+      txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${elPeriodoCard ? elPeriodoCard.innerText : "... até ..."})`;
     } else {
-      // 🚀 Gera dinamicamente a string "Hoje: dd/MM/yyyy" usando as variáveis locais já existentes
-      const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
-      
+      const stringDataHoje = `${hoje.getDate().toString().padStart(2, '0')}/${(hoje.getMonth() + 1).toString().padStart(2, '0')}/${hoje.getFullYear()}`;
       txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvo} (Hoje: ${stringDataHoje})`;
     }
-    // =========================================================================
   }
   
   if (containerRanking) {
@@ -3224,39 +3235,66 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       rankingTransp.forEach((item, index) => {
         const divCard = document.createElement("div");
         divCard.className = "diagnostico-item";
-        divCard.style.padding = "14px 18px"; divCard.style.borderRadius = "10px"; divCard.style.background = "#ffffff";
-        divCard.style.boxShadow = "0 2px 12px rgba(0,0,0,0.03)"; divCard.style.border = "1px solid #E5E5EA";
-        divCard.style.display = "flex"; divCard.style.justifyContent = "space-between"; divCard.style.alignItems = "center";
+        
+        // Estilização Nu-Style Premium (Cartão Elevado com cantos arredondados)
+        divCard.style.background = "#ffffff"; divCard.style.padding = "16px 20px"; divCard.style.borderRadius = "12px";
+        divCard.style.boxShadow = "0 3px 14px rgba(0, 0, 0, 0.04)"; divCard.style.border = "1px solid #E5E5EA";
+        divCard.style.display = "flex"; divCard.style.flexDirection = "column"; divCard.style.gap = "12px";
         divCard.style.width = "100%"; divCard.style.boxSizing = "border-box";
         
         const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#8A05BE";
+        const bgBadge = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(138, 5, 190, 0.1)";
 
-        divCard.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 14px; width: 35%;">
-            <span style="font-size: 0.78rem; font-weight: bold; background: ${statusAlvo === "BACKLOG" ? "rgba(255,59,48,0.1)" : "rgba(138,5,190,0.1)"}; color: ${corBarra}; padding: 3px 8px; border-radius: 6px; min-width: 18px; text-align: center;">${index + 1}</span>
-            <span style="font-weight: 700; color: #1C1C1E; font-size: 0.85rem;">${item.transportadora}</span>
-          </div>
-          <div style="width: 40%; display: flex; align-items: center; gap: 12px;">
-            <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden;">
-              <div style="width: ${item.percentual}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s;"></div>
+        // 🟢 LINHA SUPERIOR: Informações macros horizontais
+        let htmlLinhaSuperior = `
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 14px; width: 35%;">
+              <span style="font-size: 0.78rem; font-weight: bold; background: ${bgBadge}; color: ${corBarra}; padding: 3px 8px; border-radius: 6px; min-width: 18px; text-align: center;">${index + 1}</span>
+              <span style="font-weight: 700; color: #1C1C1E; font-size: 0.88rem; font-family: -apple-system, sans-serif;">${item.transportadora}</span>
             </div>
-            <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 45px; text-align: right;">${item.percentual}%</span>
-          </div>
-          <div style="width: 25%; text-align: right; font-weight: bold; color: #222222; font-size: 0.82rem; white-space: nowrap;">
-            <span style="color: ${corBarra}; font-weight: 700;">${item.romaneiosCount}</span> Rom <span style="color: #D2D2D7; margin: 0 2px;">|</span> ${item.volumesCount.toLocaleString()} Vol
+            <div style="width: 38%; display: flex; align-items: center; gap: 12px;">
+              <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="width: ${item.percentual}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s;"></div>
+              </div>
+              <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 45px; text-align: right; font-family: monospace;">${item.percentual}%</span>
+            </div>
+            <div style="width: 27%; text-align: right; font-weight: bold; color: #1C1C1E; font-size: 0.82rem; white-space: nowrap; font-family: sans-serif;">
+              <span style="color: ${corBarra}; font-weight: 800;">${item.romaneiosCount}</span> Rom <span style="color: #E5E5EA; margin: 0 4px;">|</span> ${item.volumesCount.toLocaleString()} Vol
+            </div>
           </div>
         `;
+
+        // 🔴 LINHA INFERIOR: Sub-Tabela de Dispersão Exclusiva para Backlog
+        let htmlSubTabelaDispersao = "";
+        if (statusAlvo === "BACKLOG") {
+          htmlSubTabelaDispersao = `
+            <div style="display: flex; gap: 8px; background: #F4F4F7; padding: 10px 14px; border-radius: 8px; width: 100%; box-sizing: border-box; justify-content: space-between; align-items: center;">
+              <div style="font-size: 0.72rem; font-weight: 700; color: #6E6E73; text-transform: uppercase; letter-spacing: 0.3px;">Envelhecimento dos lotes:</div>
+              <div style="display: flex; gap: 16px; font-family: -apple-system, sans-serif;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ Ontem: <span style="color:#FF3B30; font-weight:800;">${item.ontem}</span></div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ 2 dias: <span style="color:#FF3B30; font-weight:800;">${item.doisDias}</span></div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ 3 dias: <span style="color:#FF3B30; font-weight:800;">${item.tresDias}</span></div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">🚨 4d ou +: <span style="color:#8A05BE; font-weight:800;">${item.quatroMais}</span></div>
+              </div>
+            </div>
+          `;
+        }
+
+        // Consolida o layout interno e injeta no DOM
+        divCard.innerHTML = htmlLinhaSuperior + htmlSubTabelaDispersao;
         containerRanking.appendChild(divCard);
       });
     }
   }
 
+  // Abre visualmente o modal de BI
   const modalKpi = document.getElementById("modalKpiDetalhado");
   if (modalKpi) {
     modalKpi.style.setProperty("display", "flex", "important");
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 
