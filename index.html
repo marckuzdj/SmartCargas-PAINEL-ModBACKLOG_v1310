@@ -3199,16 +3199,18 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
   
   if (txtTituloModal) {
     // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: TÍTULO DO MODAL DINÂMICO COM JANELA DE DATAS DO CARD
+    // 🎯 INJEÇÃO CIRÚRGICA: TÍTULO DINÂMICO DIÁRIO PARA OS CARDS OPERACIONAIS
     // =========================================================================
     if (statusAlvo === "BACKLOG") {
-      // Resgata o texto de período real calculado e exibido no subtexto do card
       const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
       const textoJanelaDatas = elPeriodoCard ? elPeriodoCard.innerText : "... até ...";
       
       txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${textoJanelaDatas})`;
     } else {
-      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvo}`;
+      // 🚀 Gera dinamicamente a string "Hoje: dd/MM/yyyy" usando as variáveis locais já existentes
+      const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
+      
+      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvo} (Hoje: ${stringDataHoje})`;
     }
     // =========================================================================
   }
