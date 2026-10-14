@@ -1095,6 +1095,13 @@ destrava os controles
 * LÓGICA DE TRANSIÇÃO: Chaveia o barramento de rede e dispara a injeção estática de script
 */
 function alternarBarramentoEAtivarFiltros() {
+
+ // =========================================================================
+ // 🎯 INJEÇÃO CIRÚRGICA: HIGIENIZAÇÃO DE CACHE ADJACENTE
+ // =========================================================================
+ CACHE_DADOS_CSV_MIGRACAO = []; // Zera a memória RAM para receber o lote limpo da nova UF
+ // =========================================================================
+	
  const ufSelecionada = document.getElementById("filtroUF").value;
  const selectTransp = document.getElementById("filtroTransp");
  const selectOperador = document.getElementById("filtroOperador");
