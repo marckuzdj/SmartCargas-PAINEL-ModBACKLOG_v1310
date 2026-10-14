@@ -3111,10 +3111,26 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     return;
   }
 
-  console.log(`[BI ENGINE V3.0] Renderizando ranking baseado nos novos critérios de Colunas. Alvo: ${statusAlvo}`);
+  console.log(`[BI ENGINE V3.5] Renderizando ranking baseado nos novos critérios de Sincronismo. Alvo: ${statusAlvo}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
+
+  // 📐 CÁLCULO DINÂMICO DE HOJE E ONTEM NO FORMATO ISO (YYYYMMDD) [14/10/2026]
+  const hoje = new Date();
+  const diaHoje = hoje.getDate().toString().padStart(2, '0');
+  const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
+  const anoHoje = hoje.getFullYear();
+  const dataHojeISO = `${anoHoje}${mesHoje}${diaHoje}`;
+
+  const objetoOntem = new Date(hoje);
+  objetoOntem.setDate(hoje.getDate() - 1);
+  const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${objetoOntem.getDate().toString().padStart(2, '0')}`;
+
+  // Captura o estado dos inputs de data da tela de filtros para decisão de escopo
+  const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
+  const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+  const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
   // 🚀 AGREGAÇÃO EM TEMPO DE EXECUÇÃO NA MEMÓRIA RAM
   CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
@@ -3127,28 +3143,40 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
+    // Normaliza de forma segura a data de importação do registro para YYYYMMDD
+    let isoLinhaImport = "";
+    if (linha.dtImport && linha.dtImport !== "N/A") {
+      const textoData = linha.dtImport.toString().trim().substring(0, 10);
+      const partes = textoData.split("/");
+      if (partes.length === 3) {
+        isoLinhaImport = partes[2] + partes[1].toString().padStart(2, '0') + partes[0].toString().padStart(2, '0');
+      }
+    }
+
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA: TRAVA DE CRITÉRIO TEMPORAL ADAPTATIVA (HOJE vs BACKLOG)
+    // =========================================================================
+    if (statusAlvo === "BACKLOG") {
+      // Se o alvo for Backlog, filtra estritamente as linhas carimbadas pelo servidor
+      if (statusCarga !== "BACKLOG") return;
+    } else {
+      // Para os 4 cards normais, se as caixas estiverem vazias, força olhar APENAS o dia de hoje
+      if (usarCorteEstritoHoje && isoLinhaImport !== dataHojeISO) {
+        return; // Descarta registros retroativos para espelhar perfeitamente o card
+      }
+      
+      // Filtro para os demais cartões normais
+      if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
+    }
+    // =========================================================================
+
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0 };
     }
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: FILTRAGEM SIMPLIFICADA POR IDENTIFICADOR DO BACKEND
-    // =========================================================================
-    if (statusAlvo === "BACKLOG") {
-      // Se o alvo for Backlog, filtra estritamente as linhas carimbadas pelo servidor
-      if (statusCarga === "BACKLOG") {
-        mapaAgrupamentoTransp[nomeTransp].lotesMapeados += 1;
-        mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
-        totalGeralAcumuladoFiltro += 1;
-      }
-    } else {
-      // Filtro para os demais cartões normais
-      if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
-      
-      mapaAgrupamentoTransp[nomeTransp].lotesMapeados += 1;
-      mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
-      totalGeralAcumuladoFiltro += 1;
-    }
+    mapaAgrupamentoTransp[nomeTransp].lotesMapeados += 1;
+    mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
+    totalGeralAcumuladoFiltro += 1;
   });
 
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
@@ -3179,7 +3207,7 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     containerRanking.innerHTML = "";
     
     if (rankingTransp.length === 0) {
-      containerRanking.innerHTML = `<div style="padding:20px; text-align:center; color:#6E6E73; font-weight:bold;">Nenhum romaneio de Backlog localizado para o seu escopo.</div>`;
+      containerRanking.innerHTML = `<div style="padding:20px; text-align:center; color:#6E6E73; font-weight:bold; font-family:sans-serif;">Nenhum romaneio localizado para o seu escopo de filtros.</div>`;
     } else {
       rankingTransp.forEach((item, index) => {
         const divCard = document.createElement("div");
@@ -3217,6 +3245,7 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 
