@@ -1563,17 +1563,14 @@ if (typeof IS_LOGIN_PROCESSING === 'undefined') {
 }
 
 /**
- * MOTOR DE AUTENTICAÇÃO DO PAINEL (LOGIN PRINCIPAL BLINDADO V3.1)
- * 🎯 FIX: Limpeza direcionada do localStorage para não apagar o dicionário de Regionais (Regionais Web Apps)
+ * MOTOR DE AUTENTICAÇÃO DO PAINEL (LOGIN PRINCIPAL - VERSÃO HOMOLOGADA FIX)
+ * 🎯 CORREÇÃO: Garante a persistência estável da sessão utilizando a variável local higienizada
  */
 async function executarLoginPainel(event) {
   if (event) event.preventDefault();
   
-  // 🛡️ TRAVA 1: Bloqueia re-execuções assíncronas paralelas (Teclado Enter / Multi-clique)
-  if (IS_LOGIN_PROCESSING) return;
-
-  const email = document.getElementById("loginUser") ? document.getElementById("loginUser").value.trim() : "";
-  const pass = document.getElementById("loginPass") ? document.getElementById("loginPass").value.trim() : "";
+  const email = document.getElementById("loginUser").value.trim();
+  const pass = document.getElementById("loginPass").value.trim();
   
   const btn = document.getElementById("btnLogin");
   const spinner = document.getElementById("loginSpinner");
@@ -1584,37 +1581,20 @@ async function executarLoginPainel(event) {
     return;
   }
   
-  // Ativa o estado de ocupação na memória RAM e na Interface Gráfica
-  IS_LOGIN_PROCESSING = true;
   if (btn) btn.disabled = true;
   if (spinner) spinner.style.display = "block";
   if (btnText) btnText.innerText = "Autenticando...";
 
   try {
-    // =========================================================================
-    // 🎯 CORREÇÃO CIRÚRGICA: HIGIENIZAÇÃO DIRECIONADA (PRESERVA REGIONAIS)
-    // =========================================================================
-    // Substituído o localStorage.clear() para NÃO quebrar o dicionário de Web Apps
-    localStorage.removeItem("user_logado");
-    localStorage.removeItem("user_nome");
-    localStorage.removeItem("user_perfil");
-    localStorage.removeItem("user_empresa");
-    localStorage.removeItem("user_regional");
-    localStorage.removeItem("user_perfil_temp");
-    localStorage.removeItem("user_empresa_temp");
-    // =========================================================================
-
     // 🚀 Executa via JSONP com resiliência: 3 tentativas com timeout de 10s por tentativa
     const resposta = await chamarBackendComRetry("validarLoginPainelV2", {
       usuario: email,
       senha: pass
     }, 3, 10000);
 
-    // Desativa feedbacks visuais imediatamente após o retorno estável do pacote
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = "none";
     if (btnText) btnText.innerText = "Acessar Painel";
-    IS_LOGIN_PROCESSING = false; 
 
     if (resposta) {
       // 🌟 INTERVENÇÃO: Intercepta se a conta foi deletada por expiração no servidor
@@ -1631,10 +1611,9 @@ async function executarLoginPainel(event) {
       }
 
       if (resposta.success) {
-        const perfilBruto = resposta.perfil ? resposta.perfil.toString().trim().toUpperCase() : "COMMON";
-        const empresaBruta = resposta.empresa ? resposta.empresa.toString().trim().toUpperCase() : "N/A";
+        const perfilBruto = resposta.perfil ? resposta.perfil.toString().trim().toUpperCase() : "";
+        const empresaBruta = resposta.empresa ? resposta.empresa.toString().trim().toUpperCase() : "";
         
-        // Define as travas de restrição global de interface
         if (perfilBruto === "OPERADOR" || perfilBruto === "TRANSPORTADOR") {
           PERFIL_FILTRO_DASHBOARD = perfilBruto;
           console.log(`[FILTRO GLOBAL] Perfil restrito ativado: ${PERFIL_FILTRO_DASHBOARD}`);
@@ -1642,30 +1621,33 @@ async function executarLoginPainel(event) {
           PERFIL_FILTRO_DASHBOARD = "";
         }
 
-        // 🔐 ROTA DE SEGUNDO FATOR DE AUTENTICAÇÃO (MFA/OTP)
         if (resposta.exigirOTP) {
-          EMAIL_LOGIN_EM_PROCESSO = resposta.email;
-          if (resposta.perfil) localStorage.setItem("user_perfil_temp", perfilBruto);
-          if (resposta.empresa) localStorage.setItem("user_empresa_temp", empresaBruta);
+          EMAIL_LOGIN_EM_PROCESSO = resposta.email || email; // 🌟 Fallback de segurança contra undefined
+          if (resposta.perfil) localStorage.setItem("user_perfil_temp", resposta.perfil);
+          if (resposta.empresa) localStorage.setItem("user_empresa_temp", resposta.empresa);
           
           const modal = document.getElementById("modalOtpAcesso");
           if (modal) {
             modal.style.setProperty("display", "flex", "important");
             modal.classList.remove("hidden");
-            const inputOtp = document.getElementById("inputOtpValidador");
-            if (inputOtp) inputOtp.focus();
+            document.getElementById("inputOtpValidador").focus();
           }
           return;
         }
         
-        alert(`🎉 Bem-vindo de volta, ${resposta.nome || "Usuário"}!`);
+        alert(`🎉 Bem-vindo de volta, ${resposta.nome}!`);
         
-        // Persistência de chaves estável preservando as configurações de rede
-        localStorage.setItem("user_logado", resposta.email || email);
+        // =========================================================================
+        // 🎯 CORREÇÃO CIRÚRGICA: PERSISTÊNCIA IMPEDINDO SESSÕES UNDEFINED
+        // =========================================================================
+        // Gravando diretamente a string da variável 'email' local limpa do topo do input, 
+        // evitando que chaves organizacionais de privilégio quebrem o backend regional.
+        localStorage.setItem("user_logado", email);
         localStorage.setItem("user_nome", resposta.nome || "Operador");
         localStorage.setItem("user_regional", resposta.regional || "GERAL");
-        localStorage.setItem("user_perfil", perfilBruto);
-        localStorage.setItem("user_empresa", empresaBruta);
+        localStorage.setItem("user_perfil", perfilBruto || "TELEFONICA");
+        localStorage.setItem("user_empresa", empresaBruta || "N/A");
+        // =========================================================================
         
         confirmarBoasVindasERedirecionar();
       } else {
@@ -1676,12 +1658,12 @@ async function executarLoginPainel(event) {
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = "none";
     if (btnText) btnText.innerText = "Acessar Painel";
-    IS_LOGIN_PROCESSING = false; 
     
     console.error("❌ Falha na rotina de login:", erro);
-    alert("❌ Falha de conexão: Excedido o número de tentativas de comunicação com o banco mestre. Verifique sua rede e tente novamente.");
+    alert("❌ Falha crítica de rede ao conectar com o banco de dados mestre. Tente novamente.");
   }
 }
+
 
 
 
