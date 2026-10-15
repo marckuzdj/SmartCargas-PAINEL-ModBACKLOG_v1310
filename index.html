@@ -3236,7 +3236,7 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
         const divCard = document.createElement("div");
         divCard.className = "diagnostico-item";
         
-        // Estilização Nu-Style Premium (Cartão Elevado com cantos arredondados)
+        // Estilização Nu-Style Premium
         divCard.style.background = "#ffffff"; divCard.style.padding = "16px 20px"; divCard.style.borderRadius = "12px";
         divCard.style.boxShadow = "0 3px 14px rgba(0, 0, 0, 0.04)"; divCard.style.border = "1px solid #E5E5EA";
         divCard.style.display = "flex"; divCard.style.flexDirection = "column"; divCard.style.gap = "12px";
@@ -3245,21 +3245,30 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
         const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#8A05BE";
         const bgBadge = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(138, 5, 190, 0.1)";
 
-        // 🟢 LINHA SUPERIOR: Informações macros horizontais
+        // Botão de Extração de Base específico por Transportadora (Exclusivo de Backlog)
+        let htmlBotaoExtrair = "";
+        if (statusAlvo === "BACKLOG") {
+          htmlBotaoExtrair = `
+            <button onclick="exportarCsvBacklogEspecifico('${item.transportadora}')" style="background: #F4F4F7; border: 1px solid #E5E5EA; color: #8A05BE; font-weight: 700; cursor: pointer; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px; padding: 5px 12px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#8A05BE'; this.style.color='#ffffff';" onmouseout="this.style.background='#F4F4F7'; this.style.color='#8A05BE';">Extrair Base</button>
+          `;
+        }
+
+        // 🟢 LINHA SUPERIOR: Informações macros horizontais (Com o botão injetado se for backlog)
         let htmlLinhaSuperior = `
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="display: flex; align-items: center; gap: 14px; width: 35%;">
               <span style="font-size: 0.78rem; font-weight: bold; background: ${bgBadge}; color: ${corBarra}; padding: 3px 8px; border-radius: 6px; min-width: 18px; text-align: center;">${index + 1}</span>
               <span style="font-weight: 700; color: #1C1C1E; font-size: 0.88rem; font-family: -apple-system, sans-serif;">${item.transportadora}</span>
             </div>
-            <div style="width: 38%; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 32%; display: flex; align-items: center; gap: 12px;">
               <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden;">
                 <div style="width: ${item.percentual}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s;"></div>
               </div>
               <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 45px; text-align: right; font-family: monospace;">${item.percentual}%</span>
             </div>
-            <div style="width: 27%; text-align: right; font-weight: bold; color: #1C1C1E; font-size: 0.82rem; white-space: nowrap; font-family: sans-serif;">
-              <span style="color: ${corBarra}; font-weight: 800;">${item.romaneiosCount}</span> Rom <span style="color: #E5E5EA; margin: 0 4px;">|</span> ${item.volumesCount.toLocaleString()} Vol
+            <div style="width: 33%; display: flex; justify-content: flex-end; align-items: center; gap: 15px; font-weight: bold; color: #1C1C1E; font-size: 0.82rem; white-space: nowrap; font-family: sans-serif;">
+              <div><span style="color: ${corBarra}; font-weight: 800;">${item.romaneiosCount}</span> Rom <span style="color: #E5E5EA; margin: 0 2px;">|</span> ${item.volumesCount.toLocaleString()} Vol</div>
+              ${htmlBotaoExtrair}
             </div>
           </div>
         `;
@@ -3280,7 +3289,6 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
           `;
         }
 
-        // Consolida o layout interno e injeta no DOM
         divCard.innerHTML = htmlLinhaSuperior + htmlSubTabelaDispersao;
         containerRanking.appendChild(divCard);
       });
@@ -3296,6 +3304,63 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
 }
 
 
+/**
+ * ENGINE EXPORT: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
+ */
+function exportarCsvBacklogEspecifico(nomeTransportadora) {
+  if (!CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO.length === 0) return;
+
+  console.log(`[CSV EXPORT] Compilando lote de Backlog para a transportadora: ${nomeTransportadora}`);
+
+  // 📝 Definição do Cabeçalho Mestre do Arquivo exigido na Doca
+  const cabecalhosCSV = ["NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", "OBS", "STATUS", "INTERCORRENCIAS", "UF", "DT_IMPORT", "DISPATCH"];
+  
+  let linhasDoArquivo = [cabecalhosCSV.join(";")]; // Layout com separador ponto e vírgula padrão BR
+
+  // Filtra as linhas do cache local pertencentes à transportadora e marcadas como BACKLOG
+  CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
+    if (linha.status === "BACKLOG" && (linha.transp || "").toString().toUpperCase() === nomeTransportadora.toUpperCase()) {
+      
+      const dadosLinha = [
+        linha.numRomaneio || "",
+        linha.pedidos !== undefined ? linha.pedidos : "",
+        linha.volumes !== undefined ? linha.volumes : "",
+        linha.operador || "",
+        linha.transp || "",
+        linha.conferencia || "",
+        linha.obs || "",
+        "PENDENTE", // Mostra o STATUS cru original que está pendente de bipes
+        linha.intercorrencias || "",
+        linha.uf || "",
+        linha.dtImport || "",
+        linha.dispatch || ""
+      ];
+
+      // Sanitiza strings para não quebrar o delimitador do CSV caso haja ponto e vírgula digitado por operadores
+      const linhaTratada = dadosLinha.map(v => `"${v.toString().replace(/"/g, '""').replace(/[\n\r]/g, ' ')}"`).join(";");
+      linhasDoArquivo.push(linhaTratada);
+    }
+  });
+
+  // Transforma o array em um Blob de dados binários com codificação UTF-8 estável
+  const conteudoFinalTexto = linhasDoArquivo.join("\n");
+  const blobDeDados = new Blob(["\ufeff" + conteudoFinalTexto], { type: "text/csv;charset=utf-8;" });
+  
+  // Força o gatilho de download nativo invisível no navegador do usuário
+  const linkInvisivel = document.createElement("a");
+  const urlBlob = URL.createObjectURL(blobDeDados);
+  
+  const dataHojeArquivo = new Date().toLocaleDateString('pt-BR').replace(/\//g, "-");
+  linkInvisivel.setAttribute("href", urlBlob);
+  linkInvisivel.setAttribute("download", `BACKLOG_${nomeTransportadora}_${dataHojeArquivo}.csv`);
+  linkInvisivel.style.visibility = "hidden";
+  
+  document.body.appendChild(linkInvisivel);
+  linkInvisivel.click();
+  document.body.removeChild(linkInvisivel);
+  
+  console.log(`[CSV EXPORT] Arquivo gerado com sucesso para a transportadora ${nomeTransportadora}.`);
+}
 
 
 
