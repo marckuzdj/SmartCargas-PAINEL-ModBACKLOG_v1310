@@ -1557,14 +1557,23 @@ function chamarBackendComRetry(action, parametros, tentativasMaximas = 3, timeou
   });
 }
 
+// Variable de controle global inline (Coloque no topo do escopo de scripts se preferir)
+if (typeof IS_LOGIN_PROCESSING === 'undefined') {
+  var IS_LOGIN_PROCESSING = false; 
+}
+
 /**
- * MOTOR DE AUTENTICAÇÃO DO PAINEL (LOGIN PRINCIPAL)
+ * MOTOR DE AUTENTICAÇÃO DO PAINEL (LOGIN PRINCIPAL BLINDADO)
+ * 🛡️ ESTABILIDADE: Proteção contra Duplo Submit via Enter + Sanitização de Fallbacks para BI
  */
 async function executarLoginPainel(event) {
   if (event) event.preventDefault();
   
-  const email = document.getElementById("loginUser").value.trim();
-  const pass = document.getElementById("loginPass").value.trim();
+  // 🛡️ TRAVA 1: Bloqueia re-execuções assíncronas paralelas (Teclado Enter / Multi-clique)
+  if (IS_LOGIN_PROCESSING) return;
+
+  const email = document.getElementById("loginUser") ? document.getElementById("loginUser").value.trim() : "";
+  const pass = document.getElementById("loginPass") ? document.getElementById("loginPass").value.trim() : "";
   
   const btn = document.getElementById("btnLogin");
   const spinner = document.getElementById("loginSpinner");
@@ -1575,20 +1584,27 @@ async function executarLoginPainel(event) {
     return;
   }
   
+  // Ativa o estado de ocupação na memória RAM e na Interface Gráfica
+  IS_LOGIN_PROCESSING = true;
   if (btn) btn.disabled = true;
   if (spinner) spinner.style.display = "block";
   if (btnText) btnText.innerText = "Autenticando...";
 
   try {
+    // Limpa caches residuais de sessões anteriores para evitar colisões nas regras de BI do painel
+    localStorage.clear(); 
+
     // 🚀 Executa via JSONP com resiliência: 3 tentativas com timeout de 10s por tentativa
     const resposta = await chamarBackendComRetry("validarLoginPainelV2", {
       usuario: email,
       senha: pass
     }, 3, 10000);
 
+    // Desativa feedbacks visuais imediatamente após o retorno estável do pacote
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = "none";
     if (btnText) btnText.innerText = "Acessar Painel";
+    IS_LOGIN_PROCESSING = false; // Libera a esteira mestre
 
     if (resposta) {
       // 🌟 INTERVENÇÃO: Intercepta se a conta foi deletada por expiração no servidor
@@ -1605,9 +1621,10 @@ async function executarLoginPainel(event) {
       }
 
       if (resposta.success) {
-        const perfilBruto = resposta.perfil ? resposta.perfil.toString().trim().toUpperCase() : "";
-        const empresaBruta = resposta.empresa ? resposta.empresa.toString().trim().toUpperCase() : "";
+        const perfilBruto = resposta.perfil ? resposta.perfil.toString().trim().toUpperCase() : "COMMON";
+        const empresaBruta = resposta.empresa ? resposta.empresa.toString().trim().toUpperCase() : "N/A";
         
+        // Define as travas de restrição global de interface
         if (perfilBruto === "OPERADOR" || perfilBruto === "TRANSPORTADOR") {
           PERFIL_FILTRO_DASHBOARD = perfilBruto;
           console.log(`[FILTRO GLOBAL] Perfil restrito ativado: ${PERFIL_FILTRO_DASHBOARD}`);
@@ -1615,25 +1632,29 @@ async function executarLoginPainel(event) {
           PERFIL_FILTRO_DASHBOARD = "";
         }
 
+        // 🔐 ROTA DE SEGUNDO FATOR DE AUTENTICAÇÃO (MFA/OTP)
         if (resposta.exigirOTP) {
           EMAIL_LOGIN_EM_PROCESSO = resposta.email;
-          if (resposta.perfil) localStorage.setItem("user_perfil_temp", resposta.perfil);
-          if (resposta.empresa) localStorage.setItem("user_empresa_temp", resposta.empresa);
+          if (resposta.perfil) localStorage.setItem("user_perfil_temp", perfilBruto);
+          if (resposta.empresa) localStorage.setItem("user_empresa_temp", empresaBruta);
           
           const modal = document.getElementById("modalOtpAcesso");
           if (modal) {
             modal.style.setProperty("display", "flex", "important");
             modal.classList.remove("hidden");
-            document.getElementById("inputOtpValidador").focus();
+            const inputOtp = document.getElementById("inputOtpValidador");
+            if (inputOtp) inputOtp.focus();
           }
           return;
         }
         
-        alert(`🎉 Bem-vindo de volta, ${resposta.nome}!`);
-        localStorage.setItem("user_logado", resposta.email);
-        localStorage.setItem("user_nome", resposta.nome);
-        localStorage.setItem("user_regional", resposta.regional);
-        localStorage.setItem("user_perfil", perfilBruto || "OPERADOR");
+        alert(`🎉 Bem-vindo de volta, ${resposta.nome || "Usuário"}!`);
+        
+        // Persistência blindada de chaves — Essencial para a integridade dos gráficos de BI
+        localStorage.setItem("user_logado", resposta.email || email);
+        localStorage.setItem("user_nome", resposta.nome || "Operador");
+        localStorage.setItem("user_regional", resposta.regional || "GERAL");
+        localStorage.setItem("user_perfil", perfilBruto);
         localStorage.setItem("user_empresa", empresaBruta);
         
         confirmarBoasVindasERedirecionar();
@@ -1642,14 +1663,17 @@ async function executarLoginPainel(event) {
       }
     }
   } catch (erro) {
+    // 🛡️ Garante o destrave físico e lógico do painel caso a rede entre em colapso/timeout
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = "none";
     if (btnText) btnText.innerText = "Acessar Painel";
+    IS_LOGIN_PROCESSING = false; 
     
     console.error("❌ Falha na rotina de login:", erro);
-    alert("❌ Falha crítica de rede ao conectar com o banco de dados mestre. Tente novamente.");
+    alert("❌ Falha de conexão: Excedido o número de tentativas de comunicação com o banco mestre. Verifique sua rede e tente novamente.");
   }
 }
+
 
 /**
  * ENVIA O CÓDIGO OTP DIGITADO PELO USUÁRIO PARA VALIDAÇÃO NO SERVIDOR
