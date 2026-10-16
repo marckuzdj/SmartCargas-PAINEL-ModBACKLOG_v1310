@@ -1095,19 +1095,20 @@ destrava os controles
 * LÓGICA DE TRANSIÇÃO: Chaveia o barramento de rede e dispara a injeção estática de script
 */
 // =========================================================================
-// 🚀 MEMÓRIA CORE FRONTEND: CACHE DE CONTROLE DE REDE ASSÍNCRONA
+// 🚀 MEMÓRIA CORE FRONTEND: CONTROLE DE FLUXO DE REDE ANTIDUPLICIDADE
 // =========================================================================
-if (typeof REQUISICAO_FILTRO_ATUAL_TOKEN === 'undefined') {
-  var REQUISICAO_FILTRO_ATUAL_TOKEN = 0; // Token incremental que impede Loops Infinitos por concorrência
+if (typeof ULTIMO_GATILHO_REGIONAL_TIMESTAMP === 'undefined') {
+  var ULTIMO_GATILHO_REGIONAL_TIMESTAMP = 0; // Registra o carimbo de data/hora do último clique válido
 }
 
 /**
- * 🎛️ MOTOR DE TRANSIÇÃO DE BARRAMENTO COM ALTA PERFORMANCE V8
- * ⚡ ESTRATÉGIA: Token de Isolamento de Rede + Cache de DOM + Batch Updates
+ * 🎛️ MOTOR DE TRANSIÇÃO DE BARRAMENTO COM ALTA PERFORMANCE V5.1
+ * 🎯 FIX: Restabelece o callback estático fixo exigido pelo motor do Google Apps Script
  */
 function alternarBarramentoEAtivarFiltros() {
-  // Incrementa o Token de segurança na memória RAM para invalidar qualquer chamada anterior fantasma
-  const tokenInstanciaAtual = ++REQUISICAO_FILTRO_ATUAL_TOKEN;
+  // Captura o timestamp exato deste clique para servir de Token de validação assíncrona
+  const timestampDisparoAtual = Date.now();
+  ULTIMO_GATILHO_REGIONAL_TIMESTAMP = timestampDisparoAtual;
 
   // 1. Zera de forma atômica o cache de BI para a nova regional
   CACHE_DADOS_CSV_MIGRACAO = []; 
@@ -1120,10 +1121,10 @@ function alternarBarramentoEAtivarFiltros() {
   // 🛡️ TRAVA DE BARRAMENTO: Valida se o endpoint existe na malha antes de mexer na tela
   if (REGIONAIS_WEB_APPS[ufSelecionada]) {
     ENDPOINT_REGIONAL_ATIVO = REGIONAIS_WEB_APPS[ufSelecionada];
-    console.log(`[BARRAMENTO] Rota ativa chaveada para filial: ${ufSelecionada} | Request Token: ${tokenInstanciaAtual}`);
+    console.log(`[BARRAMENTO] Rota ativa chaveada para filial: ${ufSelecionada} | TS: ${timestampDisparoAtual}`);
     
     if (terminal) {
-      terminal.value += `\n\n[${new Date().toLocaleTimeString()}] -> Barramento de rede chaveado para a regional: ${ufSelecionada} (REQ #${tokenInstanciaAtual})`;
+      terminal.value += `\n\n[${new Date().toLocaleTimeString()}] -> Barramento de rede chaveado para a regional: ${ufSelecionada}`;
       terminal.scrollTop = terminal.scrollHeight;
     }
   } else {
@@ -1131,7 +1132,7 @@ function alternarBarramentoEAtivarFiltros() {
     return;
   }
 
-  // ⚡ OPTIMIZATION: BATCH DOM UPDATES (Atualiza todos os spinners de uma só vez economizando GPU)
+  // ⚡ OPTIMIZATION: BATCH DOM UPDATES (Injeta os spinners de uma só vez)
   const spinnerHtml = '<div class="kpi-loading-spinner"></div>';
   document.getElementById("kpiTotalRomaneios").innerHTML = spinnerHtml;
   document.getElementById("kpiConcluidos").innerHTML = spinnerHtml;
@@ -1191,33 +1192,14 @@ function alternarBarramentoEAtivarFiltros() {
     mostrarToastAviso(`Dados relacionados aos romaneios importados em ${fDataImpIni}\nUtilize os filtros para buscar períodos retroativos.`);
   }
 
-  // 🛡️ GARANTIA DE SINGULARIDADE DO CALLBACK (Substitui o callback global por um validador de Token)
-  const nomeFuncaoCallbackUnica = `processarFiltrosGlobais_REQ_${tokenInstanciaAtual}`;
-  
-  window[nomeFuncaoCallbackUnica] = function(resposta) {
-    // Se o token da resposta que chegou agora for menor que o Token ativo da RAM, aborta silenciosamente!
-    if (tokenInstanciaAtual < REQUISICAO_FILTRO_ATUAL_TOKEN) {
-      console.warn(`[REDE] Descartando resposta obsoleta da REQ #${tokenInstanciaAtual} para evitar Loop Infinito.`);
-      delete window[nomeFuncaoCallbackUnica]; // Destrói o lixo de escopo do objeto window
-      return;
-    }
-    
-    // Rota segura: Se for a requisição mais recente, invoca o renderizador clássico da Dashboard
-    if (typeof window.processarRespostaFiltrosGlobais === "function") {
-      window.processarRespostaFiltrosGlobais(resposta);
-    }
-    
-    // Limpeza higiênica de memória RAM após o término estável
-    delete window[nomeFuncaoCallbackUnica];
-  };
-
-  // Limpa fisicamente as tags de scripts obsoletas pendentes na árvore DOM
+  // Limpa fisicamente as tags de scripts obsoletas pendentes na árvore DOM para não vazar memória
   const scriptAntigo = document.getElementById("script_filtro_dinamico");
   if (scriptAntigo && scriptAntigo.parentNode) {
     scriptAntigo.parentNode.removeChild(scriptAntigo);
   }
 
-  // 🔥 ALINHAMENTO COM DINÂMICA DE TOKEN ISOLADO
+  // 🔥 ALINHAMENTO COM CALLBACK ESTÁTICO PERMANENTE + TIMESTAMP DE ISOLAMENTO INLINE
+  // Mantido o callback como 'processarRespostaFiltrosGlobais' exigido pelo backend original!
   const urlCompletaFiltros = ENDPOINT_REGIONAL_ATIVO + 
     "?action=buscarFiltrosDinamicosPainel" + 
     "&dataInicio=" + encodeURIComponent(fDataImpIni) + 
@@ -1226,7 +1208,8 @@ function alternarBarramentoEAtivarFiltros() {
     "&dataConfFim=" + encodeURIComponent(fDataConfFim) + 
     "&perfilFiltro=" + encodeURIComponent(perfilFiltro) + 
     "&empresaFiltro=" + encodeURIComponent(nomeEmpresaFiltro) + 
-    "&callback=" + nomeFuncaoCallbackUnica + // 🚀 Chave mestre: O callback agora é dinâmico e amarrado ao Token
+    "&callback=processarRespostaFiltrosGlobais" + 
+    "&_reqTimestamp=" + timestampDisparoAtual + // Envia o carimbo de data/hora na URL para descarte seguro
     "&_nocache=" + Date.now();
   
   const scriptFiltrosTag = document.createElement("script");
@@ -1235,6 +1218,7 @@ function alternarBarramentoEAtivarFiltros() {
   scriptFiltrosTag.id = "script_filtro_dinamico";
   document.body.appendChild(scriptFiltrosTag);
 }
+
 
 // <- O fechamento correto da função agora fica estritamente na última linha
 
