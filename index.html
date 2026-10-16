@@ -1094,79 +1094,82 @@ destrava os controles
 /*
 * LÓGICA DE TRANSIÇÃO: Chaveia o barramento de rede e dispara a injeção estática de script
 */
+// =========================================================================
+// 🚀 MEMÓRIA CORE FRONTEND: CACHE DE CONTROLE DE REDE ASSÍNCRONA
+// =========================================================================
+if (typeof REQUISICAO_FILTRO_ATUAL_TOKEN === 'undefined') {
+  var REQUISICAO_FILTRO_ATUAL_TOKEN = 0; // Token incremental que impede Loops Infinitos por concorrência
+}
+
+/**
+ * 🎛️ MOTOR DE TRANSIÇÃO DE BARRAMENTO COM ALTA PERFORMANCE V8
+ * ⚡ ESTRATÉGIA: Token de Isolamento de Rede + Cache de DOM + Batch Updates
+ */
 function alternarBarramentoEAtivarFiltros() {
+  // Incrementa o Token de segurança na memória RAM para invalidar qualquer chamada anterior fantasma
+  const tokenInstanciaAtual = ++REQUISICAO_FILTRO_ATUAL_TOKEN;
 
- // =========================================================================
- // 🎯 INJEÇÃO CIRÚRGICA: HIGIENIZAÇÃO DE CACHE ADJACENTE
- // =========================================================================
- CACHE_DADOS_CSV_MIGRACAO = []; // Zera a memória RAM para receber o lote limpo da nova UF
- // =========================================================================
+  // 1. Zera de forma atômica o cache de BI para a nova regional
+  CACHE_DADOS_CSV_MIGRACAO = []; 
 	
- const ufSelecionada = document.getElementById("filtroUF").value;
- const selectTransp = document.getElementById("filtroTransp");
- const selectOperador = document.getElementById("filtroOperador");
- const terminal = document.getElementById("terminalMonitor");
+  const ufSelecionada = document.getElementById("filtroUF").value;
+  if (!ufSelecionada) return;
+  
+  const terminal = document.getElementById("terminalMonitor");
  
- if (!ufSelecionada) return;
- 
- // Feedbacks visuais de carregamento roxo
- document.getElementById("kpiTotalRomaneios").innerHTML = '<div class="kpi-loading-spinner"></div>';
- document.getElementById("kpiConcluidos").innerHTML = '<div class="kpi-loading-spinner"></div>';
- document.getElementById("kpiParciais").innerHTML = '<div class="kpi-loading-spinner"></div>';
- document.getElementById("kpiPendentes").innerHTML = '<div class="kpi-loading-spinner"></div>';
- 
- if (REGIONAIS_WEB_APPS[ufSelecionada]) {
-   ENDPOINT_REGIONAL_ATIVO = REGIONAIS_WEB_APPS[ufSelecionada];
-   console.log(`[BARRAMENTO] Direcionado para a filial: ${ufSelecionada}`);
-   if (terminal) {
-     terminal.value += `\n\n[${new Date().toLocaleTimeString()}] -> Barramento de rede chaveado para a regional: ${ufSelecionada}`;
-     terminal.scrollTop = terminal.scrollHeight;
-   }
- } else {
-   alert(`⚠️ O barramento para a UF ${ufSelecionada} não foi cadastrado.`);
-   return;
- }
- 
- if (selectTransp) selectTransp.innerHTML = '<option value="" disabled selected>Carregando...</option>';
- if (selectOperador) selectOperador.innerHTML = '<option value="" disabled selected>Carregando...</option>';
- 
- // Destrava os controles operacionais
- document.getElementById("filtroDocumento").disabled = false;
- document.getElementById("filtroDataInicial").disabled = false;
- document.getElementById("filtroDataFinal").disabled = false;
- document.getElementById("filtroConfInicial").disabled = false;
- document.getElementById("filtroConfFinal").disabled = false;
- document.getElementById("filtroContemDispatch").disabled = false;
- document.getElementById("btnExtrairBase").disabled = false;
-	
- // ... código anterior de destrave de controles mantido igual ...
+  // 🛡️ TRAVA DE BARRAMENTO: Valida se o endpoint existe na malha antes de mexer na tela
+  if (REGIONAIS_WEB_APPS[ufSelecionada]) {
+    ENDPOINT_REGIONAL_ATIVO = REGIONAIS_WEB_APPS[ufSelecionada];
+    console.log(`[BARRAMENTO] Rota ativa chaveada para filial: ${ufSelecionada} | Request Token: ${tokenInstanciaAtual}`);
+    
+    if (terminal) {
+      terminal.value += `\n\n[${new Date().toLocaleTimeString()}] -> Barramento de rede chaveado para a regional: ${ufSelecionada} (REQ #${tokenInstanciaAtual})`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+  } else {
+    alert(`⚠️ O barramento para a UF ${ufSelecionada} não foi cadastrado.`);
+    return;
+  }
 
- const elStatusCombo = document.getElementById("filtroStatusRomaneio");
- if (elStatusCombo) elStatusCombo.disabled = false;
- 
- // CAPTURA E CONVERSÃO DE INPUTS PARA FORMATO BR (DD/MM/YYYY)
- const formatarInputParaBr = (val) => {
-   if (!val) return "";
-   const p = val.split("-");
-   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ""; // 🎯 Ajustado a ordem correta do split nativo
- };
- 
- const nomeEmpresaFiltro = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
- const perfilFiltro = PERFIL_FILTRO_DASHBOARD || "";
- 
- let inputDataInicial = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
- let inputDataFinal = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+  // ⚡ OPTIMIZATION: BATCH DOM UPDATES (Atualiza todos os spinners de uma só vez economizando GPU)
+  const spinnerHtml = '<div class="kpi-loading-spinner"></div>';
+  document.getElementById("kpiTotalRomaneios").innerHTML = spinnerHtml;
+  document.getElementById("kpiConcluidos").innerHTML = spinnerHtml;
+  document.getElementById("kpiParciais").innerHTML = spinnerHtml;
+  document.getElementById("kpiPendentes").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiBacklog")) document.getElementById("kpiBacklog").innerHTML = spinnerHtml;
 
- let fDataImpIni = "";
- let fDataImpFim = "";
- let forcarDisparoToastLocal = false; // 🎯 Flag de controle para o Toast
+  const selectTransp = document.getElementById("filtroTransp");
+  const selectOperador = document.getElementById("filtroOperador");
+  const optCarregando = '<option value="" disabled selected>Carregando...</option>';
+  if (selectTransp) selectTransp.innerHTML = optCarregando;
+  if (selectOperador) selectOperador.innerHTML = optCarregando;
+ 
+  // ⚡ OPTIMIZATION: Destrave em bloco de inputs operacionais da Doca
+  const idsControles = ["filtroDocumento", "filtroDataInicial", "filtroDataFinal", "filtroConfInicial", "filtroConfFinal", "filtroContemDispatch", "btnExtrairBase", "filtroStatusRomaneio"];
+  idsControles.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+ 
+  // CAPTURA E CONVERSÃO OPERACIONAL DE DATAS
+  const formatarInputParaBr = (val) => {
+    if (!val) return "";
+    const p = val.split("-");
+    return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : "";
+  };
+ 
+  const nomeEmpresaFiltro = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
+  const perfilFiltro = PERFIL_FILTRO_DASHBOARD || "";
+ 
+  const inputDataInicial = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
+  const inputDataFinal = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
 
- // =========================================================================
- // 🎯 CORREÇÃO CIRÚRGICA: ACIONAMENTO SEGURO DE TOAST LOCAL (MOLDE REPLICÁVEL)
- // =========================================================================
- // Se as caixas de data estiverem vazias na troca de regional, geramos o formato
- // explicitamente em DD/MM/YYYY para que o backend faça a varredura de hoje.
- if (!inputDataInicial && !inputDataFinal) {
+  let fDataImpIni = "";
+  let fDataImpFim = "";
+  let forcarDisparoToastLocal = false;
+
+  if (!inputDataInicial && !inputDataFinal) {
     const hoje = new Date();
     const dia = hoje.getDate().toString().padStart(2, '0');
     const mes = (hoje.getMonth() + 1).toString().padStart(2, '0');
@@ -1174,49 +1177,65 @@ function alternarBarramentoEAtivarFiltros() {
     
     fDataImpIni = `${dia}/${mes}/${ano}`;
     fDataImpFim = `${dia}/${mes}/${ano}`;
-    
-    // Ativa a flag para disparar a notificação sem depender da resposta do backend
     forcarDisparoToastLocal = true;
-    
-    console.log(`[KPI HOJE] Forçando data atual em formato mestre BR: ${fDataImpIni}`);
- } else {
-    // Se o operador já possuir datas preenchidas nos inputs, faz a conversão padrão
+    console.log(`[KPI HOJE] Forçando data atual diária: ${fDataImpIni}`);
+  } else {
     fDataImpIni = formatarInputParaBr(inputDataInicial);
     fDataImpFim = formatarInputParaBr(inputDataFinal);
- }
+  }
 
- const fDataConfIni = formatarInputParaBr(document.getElementById("filtroConfInicial") ? document.getElementById("filtroConfInicial").value : "");
- const fDataConfFim = formatarInputParaBr(document.getElementById("filtroConfFinal") ? document.getElementById("filtroConfFinal").value : "");
+  const fDataConfIni = formatarInputParaBr(document.getElementById("filtroConfInicial") ? document.getElementById("filtroConfInicial").value : "");
+  const fDataConfFim = formatarInputParaBr(document.getElementById("filtroConfFinal") ? document.getElementById("filtroConfFinal").value : "");
  
- // Se a flag estiver ativa, emite o alerta visual na tela imediatamente [Nu-Style]
- if (forcarDisparoToastLocal) {
+  if (forcarDisparoToastLocal) {
     mostrarToastAviso(`Dados relacionados aos romaneios importados em ${fDataImpIni}\nUtilize os filtros para buscar períodos retroativos.`);
- }
+  }
 
- // Limpa tags antigas de requisições anteriores para o DOM não acumular lixo
- const scriptAntigo = document.getElementById("script_filtro_dinamico");
- if (scriptAntigo && scriptAntigo.parentNode) {
-   scriptAntigo.parentNode.removeChild(scriptAntigo);
- }
-
- // 🔥 ALINHAMENTO DE CHAVES DE REDE: Enviando 'dataInicio' e 'dataFim' limpos para o Código.gs
- const urlCompletaFiltros = ENDPOINT_REGIONAL_ATIVO + 
-  "?action=buscarFiltrosDinamicosPainel" + 
-  "&dataInicio=" + encodeURIComponent(fDataImpIni) + 
-  "&dataFim=" + encodeURIComponent(fDataImpFim) + 
-  "&dataConfIni=" + encodeURIComponent(fDataConfIni) + 
-  "&dataConfFim=" + encodeURIComponent(fDataConfFim) + 
-  "&perfilFiltro=" + encodeURIComponent(perfilFiltro) + 
-  "&empresaFiltro=" + encodeURIComponent(nomeEmpresaFiltro) + 
-  "&callback=processarRespostaFiltrosGlobais" + 
-  "&_nocache=" + Date.now();
+  // 🛡️ GARANTIA DE SINGULARIDADE DO CALLBACK (Substitui o callback global por um validador de Token)
+  const nomeFuncaoCallbackUnica = `processarFiltrosGlobais_REQ_${tokenInstanciaAtual}`;
   
- const scriptFiltrosTag = document.createElement("script");
- scriptFiltrosTag.src = urlCompletaFiltros;
- scriptFiltrosTag.async = true;
- scriptFiltrosTag.id = "script_filtro_dinamico";
- document.body.appendChild(scriptFiltrosTag);
-}// <- O fechamento correto da função agora fica estritamente na última linha
+  window[nomeFuncaoCallbackUnica] = function(resposta) {
+    // Se o token da resposta que chegou agora for menor que o Token ativo da RAM, aborta silenciosamente!
+    if (tokenInstanciaAtual < REQUISICAO_FILTRO_ATUAL_TOKEN) {
+      console.warn(`[REDE] Descartando resposta obsoleta da REQ #${tokenInstanciaAtual} para evitar Loop Infinito.`);
+      delete window[nomeFuncaoCallbackUnica]; // Destrói o lixo de escopo do objeto window
+      return;
+    }
+    
+    // Rota segura: Se for a requisição mais recente, invoca o renderizador clássico da Dashboard
+    if (typeof window.processarRespostaFiltrosGlobais === "function") {
+      window.processarRespostaFiltrosGlobais(resposta);
+    }
+    
+    // Limpeza higiênica de memória RAM após o término estável
+    delete window[nomeFuncaoCallbackUnica];
+  };
+
+  // Limpa fisicamente as tags de scripts obsoletas pendentes na árvore DOM
+  const scriptAntigo = document.getElementById("script_filtro_dinamico");
+  if (scriptAntigo && scriptAntigo.parentNode) {
+    scriptAntigo.parentNode.removeChild(scriptAntigo);
+  }
+
+  // 🔥 ALINHAMENTO COM DINÂMICA DE TOKEN ISOLADO
+  const urlCompletaFiltros = ENDPOINT_REGIONAL_ATIVO + 
+    "?action=buscarFiltrosDinamicosPainel" + 
+    "&dataInicio=" + encodeURIComponent(fDataImpIni) + 
+    "&dataFim=" + encodeURIComponent(fDataImpFim) + 
+    "&dataConfIni=" + encodeURIComponent(fDataConfIni) + 
+    "&dataConfFim=" + encodeURIComponent(fDataConfFim) + 
+    "&perfilFiltro=" + encodeURIComponent(perfilFiltro) + 
+    "&empresaFiltro=" + encodeURIComponent(nomeEmpresaFiltro) + 
+    "&callback=" + nomeFuncaoCallbackUnica + // 🚀 Chave mestre: O callback agora é dinâmico e amarrado ao Token
+    "&_nocache=" + Date.now();
+  
+  const scriptFiltrosTag = document.createElement("script");
+  scriptFiltrosTag.src = urlCompletaFiltros;
+  scriptFiltrosTag.async = true;
+  scriptFiltrosTag.id = "script_filtro_dinamico";
+  document.body.appendChild(scriptFiltrosTag);
+}
+
 // <- O fechamento correto da função agora fica estritamente na última linha
 
         
