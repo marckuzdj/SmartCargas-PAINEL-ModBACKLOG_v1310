@@ -3356,60 +3356,63 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
 
 
 /**
- * ENGINE EXPORT: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
+ * ENGINE EXPORT V4.1: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
  */
 function exportarCsvBacklogEspecifico(nomeTransportadora) {
   if (!CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO.length === 0) return;
 
-  console.log(`[CSV EXPORT] Compilando lote de Backlog para a transportadora: ${nomeTransportadora}`);
+  console.log(`[CSV EXPORT V4.1] Compilando base de Backlog para: ${nomeTransportadora}`);
 
-  // 📝 Definição do Cabeçalho Mestre do Arquivo exigido na Doca
   const cabecalhosCSV = ["NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", "OBS", "STATUS", "INTERCORRENCIAS", "UF", "DT_IMPORT", "DISPATCH"];
-  
-  let linhasDoArquivo = [cabecalhosCSV.join(";")]; // Layout com separador ponto e vírgula padrão BR
+  let linhasDoArquivo = [cabecalhosCSV.join(";")]; 
 
-  // Filtra as linhas do cache local pertencentes à transportadora e marcadas como BACKLOG
   CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
-    if (linha.status === "BACKLOG" && (linha.transp || "").toString().toUpperCase() === nomeTransportadora.toUpperCase()) {
+    // Captura as strings de status de forma tolerante a maiúsculas/minúsculas
+    const stCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
+    const trCarga = (linha.transp || linha.Transp || "").toString().toUpperCase();
+
+    if (stCarga === "BACKLOG" && trCarga === nomeTransportadora.toUpperCase()) {
       
       const dadosLinha = [
-        linha.numRomaneio || "",
-        linha.pedidos !== undefined ? linha.pedidos : "",
-        linha.volumes !== undefined ? linha.volumes : "",
-        linha.operador || "",
-        linha.transp || "",
-        linha.conferencia || "",
-        linha.obs || "",
-        "PENDENTE", // Mostra o STATUS cru original que está pendente de bipes
-        linha.intercorrencias || "",
-        linha.uf || "",
-        linha.dtImport || "",
-        linha.dispatch || ""
+        linha.numRomaneio || linha.NumROM || "",
+        linha.pedidos || linha.TTPedidos || "0",
+        linha.volumes || linha.TTVol || "0",
+        linha.operador || linha.Operador || "",
+        linha.transp || linha.Transp || "",
+        linha.conferencia || linha.Conferencia || "",
+        linha.obs || linha.OBS || "",
+        "PENDENTE", 
+        linha.intercorrencias || linha.INTERCORRENCIAS || "",
+        linha.uf || linha.UF || "",
+        linha.dtImport || linha.DT_IMPORT || "", // Já chega no formato dd/MM/yyyy limpo do backend!
+        linha.dispatch || linha.DISPATCH || ""
       ];
 
-      // Sanitiza strings para não quebrar o delimitador do CSV caso haja ponto e vírgula digitado por operadores
-      const linhaTratada = dadosLinha.map(v => `"${v.toString().replace(/"/g, '""').replace(/[\n\r]/g, ' ')}"`).join(";");
+      // Sanitização estrita contra quebras de ponto e vírgula internos textuais
+      const linhaTratada = dadosLinha.map(v => {
+        let txt = v ? v.toString().replace(/"/g, '""').replace(/[\n\(\r\\)t]/g, ' ').trim() : "";
+        return `"${txt}"`;
+      }).join(";");
+      
       linhasDoArquivo.push(linhaTratada);
     }
   });
 
-  // Transforma o array em um Blob de dados binários com codificação UTF-8 estável
   const conteudoFinalTexto = linhasDoArquivo.join("\n");
   const blobDeDados = new Blob(["\ufeff" + conteudoFinalTexto], { type: "text/csv;charset=utf-8;" });
   
-  // Força o gatilho de download nativo invisível no navegador do usuário
   const linkInvisivel = document.createElement("a");
   const urlBlob = URL.createObjectURL(blobDeDados);
-  
   const dataHojeArquivo = new Date().toLocaleDateString('pt-BR').replace(/\//g, "-");
+  
   linkInvisivel.setAttribute("href", urlBlob);
-  linkInvisivel.setAttribute("download", `BACKLOG_${nomeTransportadora}_${dataHojeArquivo}.csv`);
+  linkInvisivel.setAttribute("download", `BACKLOG_${nomeTransportadora.replace(/\s+/g, '_')}_${dataHojeArquivo}.csv`);
   linkInvisivel.style.visibility = "hidden";
   
   document.body.appendChild(linkInvisivel);
   linkInvisivel.click();
   document.body.removeChild(linkInvisivel);
-  
+	
   console.log(`[CSV EXPORT] Arquivo gerado com sucesso para a transportadora ${nomeTransportadora}.`);
 }
 
