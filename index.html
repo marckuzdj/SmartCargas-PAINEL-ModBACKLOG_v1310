@@ -3236,117 +3236,94 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V5.5: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 MULTI-CACHE: Consome o cache de isolamento se for Backlog, ou o cache operacional se for cartão comum
- * 📊 UX DISPERSÃO: Desdobra as infrações de Backlog abrindo a quantidade por faixa de dias atrás (Ontem, 2d, 3d, 4d+)
+ * ENGINE BI V5.6: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 SANITIZADO: Remove acentos do status de busca para alinhar perfeitamente com o payload do servidor
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
-function abrirDashboardKpiDetalhado(statusAlvo) {
+function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
 
-  // =========================================================================
-  // 🎯 INJEÇÃO CIRÚRGICA: DIRECIONAMENTO INTELIGENTE DE FONTE DE DADOS (RAM)
-  // =========================================================================
-  // Se o alvo for Backlog, consome o repositório histórico imutável (preservado).
-  // Se for qualquer outro card operacional, consome o cache volátil de tela ativa.
+  // 🎯 INJEÇÃO CIRÚRGICA: Higienização de acentos para evitar conflito ("CONCLUÍDO" -> "CONCLUIDO")
+  const statusAlvo = statusAlvoBruto.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  // Seleção inteligente da fonte de cache baseada no alvo purificado
   const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
 
   if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
     alert("⚠️ Por favor, realize uma busca de dados antes de explorar o ranking das Transportadoras.");
     return;
   }
-  // =========================================================================
 
-  console.log(`[BI ENGINE V5.5] Processando malha gráfica. Fonte de dados ativa detém ${fonteCacheAtiva.length} linhas.`);
+  console.log(`[BI ENGINE V5.6] Processando malha gráfica para o alvo: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📐 ENGENHARIA DE MATRIZ TEMPORAL HISTÓRICA (Cálculo de eixos retroativos com base em hoje [19/10/2026])
+  // 📐 CÁLCULO DINÂMICO DE HOJE E ONTEM NO FORMATO ISO (YYYYMMDD)
   const hoje = new Date();
-  
-  const gerarTextoISOData = (deslocamentoDias) => {
-    const d = new Date(hoje);
-    d.setDate(hoje.getDate() - deslocamentoDias);
-    const dia = d.getDate().toString().padStart(2, '0');
-    const mes = (d.getMonth() + 1).toString().padStart(2, '0');
-    return `${d.getFullYear()}${mes}${dia}`;
-  };
+  const diaHoje = hoje.getDate().toString().padStart(2, '0');
+  const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
+  const anoHoje = hoje.getFullYear();
+  const dataHojeISO = `${anoHoje}${mesHoje}${diaHoje}`;
 
-  const isoOntem = gerarTextoISOData(1);  // Ontem
-  const iso2Dias = gerarTextoISOData(2);  // 2 dias atrás
-  const iso3Dias = gerarTextoISOData(3);  // 3 dias atrás
+  const objetoOntem = new Date(hoje);
+  objetoOntem.setDate(hoje.getDate() - 1);
+  const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  // Captura o estado dos inputs de data da tela de filtros para decisão de escopo
   const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 LAÇO ÚNICO EM MEMÓRIA RAM
+  // 🚀 VARREDURA PROFUNDA NA FONTE DE CACHE SELECIONADA
   fonteCacheAtiva.forEach(linha => {
-    // Suporta chaves vindas da action rápida ou do relatório massivo
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
-    const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
+    
+    // Higieniza também o status da linha vinda do cache para comparação segura
+    const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
-    // Travas organizacionais de privacidade por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // Normaliza de forma segura a data de importação do registro para YYYYMMDD
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
     if (dataCrua && dataCrua !== "N/A") {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        let dL = partes[0].trim(); let mL = partes[1].trim(); let aL = partes[2].trim().substring(0, 4);
+        let dL = partes.trim(); let mL = partes.trim(); let aL = partes.trim().substring(0, 4);
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
         isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
 
-    if (!mapaAgrupamentoTransp[nomeTransp]) {
-      mapaAgrupamentoTransp[nomeTransp] = { 
-        lotesMapeados: 0, 
-        volumes: 0,
-        ontemCount: 0,
-        doisDiasCount: 0,
-        tresDiasCount: 0,
-        quatroMaisDiasCount: 0
-      };
-    }
-
     const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1 || statusCarga.indexOf("CANCELADO") !== -1;
 
+    // Triagem e aplicação de cortes condicionais baseados no alvo higienizado
     if (statusAlvo === "BACKLOG") {
-      // Se o alvo for Backlog, processa estritamente os dados carimbados do servidor
       if (statusCarga !== "BACKLOG") return;
-
-      // Realiza a triagem e dispersão por faixa de atraso
-      if (isoLinhaImport === isoOntem) {
-        mapaAgrupamentoTransp[nomeTransp].ontemCount += 1;
-      } else if (isoLinhaImport === iso2Dias) {
-        mapaAgrupamentoTransp[nomeTransp].doisDiasCount += 1;
-      } else if (isoLinhaImport === iso3Dias) {
-        mapaAgrupamentoTransp[nomeTransp].tresDiasCount += 1;
-      } else if (isoLinhaImport !== "" && isoLinhaImport < iso3Dias) {
-        mapaAgrupamentoTransp[nomeTransp].quatroMaisDiasCount += 1;
-      }
     } else {
-      // Filtros e travas de corte para os demais 4 cartões operacionais
-      if (usarCorteEstritoHoje && isoLinhaImport !== gerarTextoISOData(0)) return;
+      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) return;
       if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
+    }
+
+    if (!mapaAgrupamentoTransp[nomeTransp]) {
+      mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
+    }
+
+    if (statusAlvo === "BACKLOG") {
+      if (isoLinhaImport === dataOntemISO) mapaAgrupamentoTransp[nomeTransp].ontemCount += 1;
+      else if (isoLinhaImport === `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate() - 1).toString().padStart(2, '0')}`) mapaAgrupamentoTransp[nomeTransp].doisDiasCount += 1;
+      else if (isoLinhaImport !== "" && isoLinhaImport < dataOntemISO) mapaAgrupamentoTransp[nomeTransp].quatroMaisDiasCount += 1;
     }
 
     mapaAgrupamentoTransp[nomeTransp].lotesMapeados += 1;
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
-
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
@@ -3356,13 +3333,12 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       volumesCount: dados.volumes,
       ontem: dados.ontemCount,
       doisDias: dados.doisDiasCount,
-      tresDias: dados.tresDiasCount,
       quatroMais: dados.quatroMaisDiasCount,
       percentual: totalGeralAcumuladoFiltro > 0 ? ((dados.lotesMapeados / totalGeralAcumuladoFiltro) * 100).toFixed(1) : "0.0"
     };
   }).filter(item => item.romaneiosCount > 0);
 
-  // Ordenação decrescente baseada no volume de romaneios afetados
+  // Ordena do maior acúmulo para o menor (Top-Down)
   rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
 
   const containerRanking = document.getElementById("corpoTabelaRankingKpi");
@@ -3373,8 +3349,8 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
       txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${elPeriodoCard ? elPeriodoCard.innerText : "... até ..."})`;
     } else {
-      const stringDataHoje = `${hoje.getDate().toString().padStart(2, '0')}/${(hoje.getMonth() + 1).toString().padStart(2, '0')}/${hoje.getFullYear()}`;
-      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvo} (Hoje: ${stringDataHoje})`;
+      const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
+      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
     }
   }
   
@@ -3387,8 +3363,6 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       rankingTransp.forEach((item, index) => {
         const divCard = document.createElement("div");
         divCard.className = "diagnostico-item";
-        
-        // Estilização Nu-Style Premium
         divCard.style.background = "#ffffff"; divCard.style.padding = "16px 20px"; divCard.style.borderRadius = "12px";
         divCard.style.boxShadow = "0 3px 14px rgba(0, 0, 0, 0.04)"; divCard.style.border = "1px solid #E5E5EA";
         divCard.style.display = "flex"; divCard.style.flexDirection = "column"; divCard.style.gap = "12px";
@@ -3397,49 +3371,34 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
         const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#8A05BE";
         const bgBadge = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(138, 5, 190, 0.1)";
 
-        // Botão de Extração de Base específico por Transportadora (Exclusivo de Backlog)
         let htmlBotaoExtrair = "";
         if (statusAlvo === "BACKLOG") {
           htmlBotaoExtrair = `
             <button onclick="exportarCsvBacklogEspecifico('${item.transportadora}')" style="background: #F4F4F7; border: 1px solid #E5E5EA; color: #8A05BE; font-weight: 700; cursor: pointer; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px; padding: 5px 12px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#8A05BE'; this.style.color='#ffffff';" onmouseout="this.style.background='#F4F4F7'; this.style.color='#8A05BE';">Extrair Base</button>
           `;
         }
-        // 🔍 Substitua EXCLUSIVAMENTE o bloco 'htmlLinhaSuperior' dentro do seu forEach:
-        // =========================================================================
-        // 🎯 AJUSTE CIRÚRGICA: REDISTRIBUIÇÃO DE EIXOS HORIZONTAIS CONTRA SOBREPOSIÇÃO
-        // =========================================================================
+
         let htmlLinhaSuperior = `
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
-            <!-- Coluna 1: Nome da Transportadora (30%) -->
             <div style="display: flex; align-items: center; gap: 12px; width: 30%; min-width: 0;">
               <span style="font-size: 0.78rem; font-weight: bold; background: ${bgBadge}; color: ${corBarra}; padding: 3px 8px; border-radius: 6px; min-width: 18px; text-align: center; flex-shrink: 0;">${index + 1}</span>
               <span style="font-weight: 700; color: #1C1C1E; font-size: 0.85rem; font-family: -apple-system, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.transportadora}">${item.transportadora}</span>
             </div>
-            
-            <!-- Coluna 2: Barra Nu-Style Gráfica (32%) -->
             <div style="width: 32%; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
               <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden;">
                 <div style="width: ${item.percentual}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s;"></div>
               </div>
               <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 42px; text-align: right; font-family: monospace;">${item.percentual}%</span>
             </div>
-            
-            <!-- Coluna 3: Lotes, Volumes e Botão de Extração Sem Quebras (38%) -->
             <div style="width: 38%; display: flex; justify-content: flex-end; align-items: center; gap: 12px; font-weight: bold; color: #1C1C1E; font-size: 0.80rem; white-space: nowrap; flex-shrink: 0;">
               <div style="font-family: sans-serif; text-align: right;">
-                <span style="color: ${corBarra}; font-weight: 800;">${item.romaneiosCount}</span> Rom 
-                <span style="color: #E5E5EA; margin: 0 2px;">|</span> 
-                <span style="color: #1C1C1E; font-weight: 700;">${item.volumesCount.toLocaleString()}</span> Vol
+                <span style="color: ${corBarra}; font-weight: 800;">${item.romaneiosCount}</span> Rom <span style="color: #E5E5EA; margin: 0 2px;">|</span> ${item.volumesCount.toLocaleString()} Vol
               </div>
-              <div style="flex-shrink: 0;">
-                ${htmlBotaoExtrair}
-              </div>
+              <div style="flex-shrink: 0;">${htmlBotaoExtrair}</div>
             </div>
           </div>
         `;
-        // =========================================================================
 
-        // 🔴 LINHA INFERIOR: Sub-Tabela de Dispersão Exclusiva para Backlog
         let htmlSubTabelaDispersao = "";
         if (statusAlvo === "BACKLOG") {
           htmlSubTabelaDispersao = `
@@ -3448,8 +3407,7 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
               <div style="display: flex; gap: 16px; font-family: -apple-system, sans-serif;">
                 <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ Ontem: <span style="color:#FF3B30; font-weight:800;">${item.ontem}</span></div>
                 <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ 2 dias: <span style="color:#FF3B30; font-weight:800;">${item.doisDias}</span></div>
-                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ 3 dias: <span style="color:#FF3B30; font-weight:800;">${item.tresDias}</span></div>
-                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">🚨 4d ou +: <span style="color:#8A05BE; font-weight:800;">${item.quatroMais}</span></div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">🚨 Histórico: <span style="color:#8A05BE; font-weight:800;">${item.quatroMais}</span></div>
               </div>
             </div>
           `;
@@ -3461,13 +3419,13 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     }
   }
 
-  // Abre visualmente o modal de BI
   const modalKpi = document.getElementById("modalKpiDetalhado");
   if (modalKpi) {
     modalKpi.style.setProperty("display", "flex", "important");
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 
