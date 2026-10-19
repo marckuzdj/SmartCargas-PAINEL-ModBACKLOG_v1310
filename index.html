@@ -1853,7 +1853,19 @@ function executarExtracaoRelatorioBase(event) {
     btn.style.opacity = "0.7";
     btn.style.cursor = "not-allowed";
   }
-    
+
+  // =========================================================================
+  // ⚡ INJEÇÃO CIRÚRGICA: BATCH DOM UPDATES (SPINNERS ATIVOS NOS 5 CARDS)
+  // =========================================================================
+  // Força os spinners roxos a girarem paralelamente enquanto o backend processa
+  const spinnerHtml = '<div class="kpi-loading-spinner"></div>';
+  if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiBacklog")) document.getElementById("kpiBacklog").innerHTML = spinnerHtml;
+  // =========================================================================
+	
   if (terminal) {
     terminal.value += `\n\n=============================================================`;
     terminal.value += `\n[${new Date().toLocaleTimeString()}] -> Disparando gatilho de busca estruturada...`;
@@ -2386,6 +2398,10 @@ function executarExportacaoCSVNativa() {
  /**
  * RE-OPERA OS CONTADORES DE TOPO ATRAVÉS DO REFINAMENTO DE TRANSPORTADORA OU OPERADOR
  */
+/**
+ * MOTOR DE REFINAMENTO: Recalcula os indicadores do topo ao alterar filtros secundários
+ * 🎯 SINCRO: Integra o comportamento de Spinner e Atualização do Backlog Crítico
+ */
 function carregarKpisFiltrosRefinados() {
   const ufSelecionada = document.getElementById("filtroUF").value;
   const selectTransp = document.getElementById("filtroTransp").value;
@@ -2395,22 +2411,38 @@ function carregarKpisFiltrosRefinados() {
 
   console.log(`[KPI REFINADO] Re-calculando volumetria para Transp: ${selectTransp || 'TODAS'} | Operador: ${selectOperador || 'TODOS'}`);
 
-  // Ativa os spinners apenas nos contadores para indicar o recálculo em andamento
-  document.getElementById("kpiTotalRomaneios").innerHTML = '<div class="kpi-loading-spinner"></div>';
-  document.getElementById("kpiConcluidos").innerHTML = '<div class="kpi-loading-spinner"></div>';
-  document.getElementById("kpiParciais").innerHTML = '<div class="kpi-loading-spinner"></div>';
-  document.getElementById("kpiPendentes").innerHTML = '<div class="kpi-loading-spinner"></div>';
+  // =========================================================================
+  // ⚡ INJEÇÃO CIRÚRGICA: BATCH DOM UPDATES (SPINNERS ATIVOS NOS 5 CARDS)
+  // =========================================================================
+  const spinnerHtml = '<div class="kpi-loading-spinner"></div>';
+  if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerHTML = spinnerHtml;
+  if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerHTML = spinnerHtml;
+  
+  // Ativa o spinner roxo também no card crítico de Backlog durante o refino
+  if (document.getElementById("kpiBacklog")) document.getElementById("kpiBacklog").innerHTML = spinnerHtml;
+  // =========================================================================
 
   const callbackKpiRefinadoName = "cbKpiRefinado_" + Date.now();
 
   window[callbackKpiRefinadoName] = function(resposta) {
     if (resposta && resposta.success) {
       // Atualiza estritamente os contadores com a nova volumetria filtrada
-      document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
-      document.getElementById("kpiConcluidos").innerText = Math.max(0, resposta.kpiConcluidos || 0);
-      document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-      document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
-      console.log("[KPI REFINADO] Contadores de topo atualizados com sucesso.");
+      if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+      if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = Math.max(0, resposta.kpiConcluidos || 0);
+      if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
+      if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
+      
+      // =========================================================================
+      // 🎯 INJEÇÃO CIRÚRGICA: ATUALIZAÇÃO DO CONTADOR REAL DE BACKLOG REFINADO
+      // =========================================================================
+      if (document.getElementById("kpiBacklog")) {
+        document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
+      }
+      // =========================================================================
+      
+      console.log("[KPI REFINADO] Todos os 5 contadores de topo atualizados com sucesso.");
     }
     delete window[callbackKpiRefinadoName];
   };
@@ -2428,6 +2460,7 @@ function carregarKpisFiltrosRefinados() {
   scriptKpiRefinadoTag.onload = function() { if (scriptKpiRefinadoTag.parentNode) document.body.removeChild(scriptKpiRefinadoTag); };
   document.body.appendChild(scriptKpiRefinadoTag);
 }
+
 
 /**
  * TRAVA MÚTUA DE INTERFACE: Bloqueia o par oposto de datas se um dos pares contiver dados
@@ -2450,10 +2483,10 @@ function gerenciarTravaMutuaDatas() {
   document.getElementById("filtroDataFinal").disabled = temConferencia;
 }
 
-	/**
-	 * MOTOR DE RESET: Limpa todos os filtros e congela a interface como na tela de inicialização (Load)
-	 * ✨ [ATUALIZADA] Mantém as travas corporativas se houver perfil logado restrito
-	 */
+/**
+ * MOTOR DE RESET: Limpa todos os filtros e congela a interface como na tela de inicialização (Load)
+ * ✨ [ATUALIZADA] Mantém as travas corporativas se houver perfil logado restrito e limpa o Backlog
+ */
 function executarResetFiltrosPainel() {
   console.log("[INTERFACE] Resetando todos os filtros operacionais para o estado zero...");
 
@@ -2520,10 +2553,20 @@ function executarResetFiltrosPainel() {
   if (btnExtrair) btnExtrair.disabled = true;
 
   // 6. Reseta os cards de KPIs de topo voltando a exibir o feedback original de zeros
-  document.getElementById("kpiTotalRomaneios").innerText = "0";
-  document.getElementById("kpiConcluidos").innerText = "0";
-  document.getElementById("kpiParciais").innerText = "0";
-  document.getElementById("kpiPendentes").innerText = "0";
+  if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = "0";
+  if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = "0";
+  if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = "0";
+  if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = "0";
+
+  // =======================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA: RESET COMPLETO DO CARD DE BACKLOG CRÍTICO
+  // =======================================================================
+  const elKpiBacklog = document.getElementById("kpiBacklog");
+  const elPeriodoBacklog = document.getElementById("txtPeriodoBacklog");
+  
+  if (elKpiBacklog) elKpiBacklog.innerText = "0";
+  if (elPeriodoBacklog) elPeriodoBacklog.innerText = "... até ...";
+  // =======================================================================
 
   // 7. Limpa a variável global de cache e o endpoint ativo do barramento
   ENDPOINT_REGIONAL_ATIVO = "";
@@ -2543,6 +2586,7 @@ function executarResetFiltrosPainel() {
 
   console.log("[INTERFACE] Painel devolvido com sucesso ao estado inicial de loading.");
 }
+
 
 
 	
