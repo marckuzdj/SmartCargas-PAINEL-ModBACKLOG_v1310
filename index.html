@@ -3287,18 +3287,27 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
+    // =========================================================================
+    // 🎯 CORREÇÃO CIRÚRGICA: FATIAMENTO RE-CALIBRADO DE SUB-STRINGS DE INDEX
+    // =========================================================================
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
     if (dataCrua && dataCrua !== "N/A") {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        let dL = partes.trim(); let mL = partes.trim(); let aL = partes.trim().substring(0, 4);
+        // Resgata os eixos de texto limpando os espaços individuais de cada string do array
+        let dL = partes[0].toString().trim();
+        let mL = partes[1].toString().trim();
+        let aL = partes[2].toString().trim().substring(0, 4);
+        
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
-        isoLinhaImport = `${aL}${mL}${dL}`;
+        
+        isoLinhaImport = `${aL}${mL}${dL}`; // Monta o Texto ISO "YYYYMMDD" limpo na RAM
       }
     }
+    // =========================================================================
 
     const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1 || statusCarga.indexOf("CANCELADO") !== -1;
 
