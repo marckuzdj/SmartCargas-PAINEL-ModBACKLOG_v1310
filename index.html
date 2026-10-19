@@ -1900,6 +1900,61 @@ function executarExtracaoRelatorioBase(event) {
       if (resposta.kpiParciais !== undefined) elKpiParciais.innerText = resposta.kpiParciais;
       if (resposta.kpiPendentes !== undefined) elKpiPendentes.innerText = resposta.kpiPendentes;
 
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA: PRESERVAÇÃO DO BACKLOG HISTÓRICO GLOBAL E DESTRAVE
+    // =========================================================================
+    const elKpiBacklog = document.getElementById("kpiBacklog");
+    
+    if (elKpiBacklog) {
+      // 1. Resgata o número que já estava no card (calculado na mudança de regional/filtros globais)
+      // Se por algum motivo o valor estiver corrompido ou com o spinner, assume 0
+      let valorExistenteBacklog = parseInt(elKpiBacklog.innerText) || 0;
+      
+      // Se o text mestre ainda era o spinner de carregamento, busca o valor seguro em background
+      if (isNaN(valorExistenteBacklog) || elKpiBacklog.innerHTML.indexOf("spinner") !== -1) {
+        valorExistenteBacklog = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
+      }
+
+      // 2. Garante o carimbo de "BACKLOG" nas linhas do relatório que se enquadram no critério histórico
+      const hoje = new Date();
+      const objetoOntem = new Date(hoje);
+      objetoOntem.setDate(hoje.getDate() - 1);
+      const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${objetoOntem.getDate().toString().padStart(2, '0')}`;
+
+      const dadosExtraidos = resposta.dados || [];
+      dadosExtraidos.forEach(linha => {
+        const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
+        const intercW = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().toUpperCase();
+        const dataImportW = linha.dtImport || linha.DT_IMPORT || "";
+
+        let isoLinhaImport = "";
+        if (dataImportW && dataImportW !== "N/A") {
+          const textoData = dataImportW.toString().trim().substring(0, 10);
+          const partes = textoData.split("/");
+          if (partes.length === 3) {
+            let dL = partes[0].trim(); let mL = partes[1].trim(); let aL = partes[2].trim().substring(0, 4);
+            if (dL.length === 1) dL = "0" + dL;
+            if (mL.length === 1) mL = "0" + mL;
+            isoLinhaImport = `${aL}${mL}${dL}`;
+          }
+        }
+
+        const atendeDataRetroativa = (isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO);
+        const statusNaoFinalizado = (statusCarga === "" || (statusCarga.indexOf("100%") === -1 && statusCarga.indexOf("CONCLUIDO") === -1 && statusCarga.indexOf("CANCELADO") === -1));
+        const intercorrenciaNaoConcluida = (intercW.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") === -1 && intercW.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") === -1);
+
+        if (atendeDataRetroativa && statusNaoFinalizado && intercorrenciaNaoConcluida) {
+          linha.status = "BACKLOG";
+          linha.STATUS = "BACKLOG";
+        }
+      });
+
+      // 3. Força a exibição do número histórico absoluto na tela, matando o spinner infinito!
+      elKpiBacklog.innerText = valorExistenteBacklog;
+      console.log(`[BACKLOG HISTÓRICO] Card mantido estável com o passivo real da UF: ${valorExistenteBacklog}`);
+    }
+    // =========================================================================
+		
       // Gatilho do Toast amigável que já havíamos configurado
       if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
         mostrarToastAviso(resposta.avisoFiltro);
@@ -3082,6 +3137,13 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
     const elKpiPendentes = document.getElementById("kpiPendentes");
     const elKpiBacklog = document.getElementById("kpiBacklog");
     if (elKpiBacklog) elKpiBacklog.innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;  
+
+    // =========================================================================
+    // 🎯 INJEÇÃO DE SEGURANÇA: SALVA O BACKLOG GLOBAL EM MEMÓRIA DE SESSÃO
+    // =========================================================================
+    window.ULTIMO_CALCULO_BACKLOG_GLOBAL = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
+    // =========================================================================
+	  
     if (elKpiTotal) elKpiTotal.innerText = resposta.kpiTotal || 0;
     if (elKpiConcluidos) elKpiConcluidos.innerText = resposta.kpiConcluidos || 0;
     if (elKpiParciais) elKpiParciais.innerText = resposta.kpiParciais || 0;
