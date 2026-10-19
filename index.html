@@ -1827,7 +1827,7 @@ function confirmarBoasVindasERedirecionar() {
  */
 // Vetor global em memória RAM para reter o payload atualizado e servir à exportação CSV nativa
 let CACHE_DADOS_CSV_MIGRACAO = [];
-
+let CACHE_BACKLOG_GLOBAL_ROTEAMENTO = []; // 🚀 NOVO: Cache histórico isolado mestre exclusivo para o modal de Backlog
 /**
  * MOTOR DE EXTRAÇÃO: FILTRA AS DIRETRIZES DA TORRE E CONFIGURA A VISÃO GERAL DE RELATÓRIOS
  */
@@ -2481,8 +2481,14 @@ function carregarKpisFiltrosRefinados() {
 
   const callbackKpiRefinadoName = "cbKpiRefinado_" + Date.now();
 
-  window[callbackKpiRefinadoName] = function(resposta) {
-    if (resposta && resposta.success) {
+	// 🔍 MODIFICAÇÃO 2: Vá no callback da sua função carregarKpisFiltrosRefinados()
+	// Procure por window[callbackKpiRefinadoName] e garanta que ele salve o novo pacote:
+	window[callbackKpiRefinadoName] = function(resposta) {
+	  if (resposta && resposta.success) {
+	    if (resposta.dadosSimplificados) {
+	      // 🚀 INJEÇÃO CIRÚRGICA: Atualiza o colchão de segurança do Backlog com o refino da transportadora
+	      CACHE_BACKLOG_GLOBAL_ROTEAMENTO = JSON.parse(JSON.stringify(resposta.dadosSimplificados));
+	    }
       // Atualiza estritamente os contadores com a nova volumetria filtrada
       if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
       if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = Math.max(0, resposta.kpiConcluidos || 0);
@@ -3085,10 +3091,16 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
     // Se o barramento de rede regional devolveu a relação simplificada do dia,
     // nós alimentamos o cache global em RAM na mesma hora. Isso resolve o travamento
     // e faz os cliques nos cartões funcionarem instantaneamente na mudança de UF!
-    if (resposta.dadosSimplificados) {
-      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados;
-      console.log(`[CACHE BI] Instanciados ${CACHE_DADOS_CSV_MIGRACAO.length} romaneios diários para a malha gráfica.`);
-    }
+	// 🔍 MODIFICAÇÃO 1: Vá na função window.processarRespostaFiltrosGlobais (Mudança de Regional)
+	// Procure por esta linha onde o cache comum é alimentado e injete a cópia de segurança:
+	if (resposta.dadosSimplificados) {
+	  CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados;
+	  
+	  // 🚀 INJEÇÃO CIRÚRGICA: Guarda uma cópia imutável mestre para a Torre de Backlog
+	  CACHE_BACKLOG_GLOBAL_ROTEAMENTO = JSON.parse(JSON.stringify(resposta.dadosSimplificados));
+	  
+	  console.log(`[CACHE INTEGRAL] Instanciados ${CACHE_BACKLOG_GLOBAL_ROTEAMENTO.length} romaneios na esteira mestre de Backlog.`);
+	}
     // =========================================================================
 	  
     // 🔥 GATILHO INFALÍVEL: Dispara sempre porque a função nunca é destruída!
@@ -3224,7 +3236,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V4.0: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * ENGINE BI V5.5: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 MULTI-CACHE: Consome o cache de isolamento se for Backlog, ou o cache operacional se for cartão comum
  * 📊 UX DISPERSÃO: Desdobra as infrações de Backlog abrindo a quantidade por faixa de dias atrás (Ontem, 2d, 3d, 4d+)
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
@@ -3232,17 +3245,25 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
 
-  if (!CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO.length === 0) {
+  // =========================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA: DIRECIONAMENTO INTELIGENTE DE FONTE DE DADOS (RAM)
+  // =========================================================================
+  // Se o alvo for Backlog, consome o repositório histórico imutável (preservado).
+  // Se for qualquer outro card operacional, consome o cache volátil de tela ativa.
+  const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
+
+  if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
     alert("⚠️ Por favor, realize uma busca de dados antes de explorar o ranking das Transportadoras.");
     return;
   }
+  // =========================================================================
 
-  console.log(`[BI UX DISPERSÃO] Compilando eixos de envelhecimento de carga para: ${statusAlvo}`);
+  console.log(`[BI ENGINE V5.5] Processando malha gráfica. Fonte de dados ativa detém ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📐 ENGENHARIA DE MATRIZ TEMPORAL HISTÓRICA (Cálculo de eixos retroativos com base em hoje [14/10/2026])
+  // 📐 ENGENHARIA DE MATRIZ TEMPORAL HISTÓRICA (Cálculo de eixos retroativos com base em hoje [19/10/2026])
   const hoje = new Date();
   
   const gerarTextoISOData = (deslocamentoDias) => {
@@ -3253,9 +3274,9 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     return `${d.getFullYear()}${mes}${dia}`;
   };
 
-  const isoOntem = gerarTextoISOData(1);  // Ontem (13/10/2026)
-  const iso2Dias = gerarTextoISOData(2);  // 2 dias atrás (12/10/2026)
-  const iso3Dias = gerarTextoISOData(3);  // 3 dias atrás (11/10/2026)
+  const isoOntem = gerarTextoISOData(1);  // Ontem
+  const iso2Dias = gerarTextoISOData(2);  // 2 dias atrás
+  const iso3Dias = gerarTextoISOData(3);  // 3 dias atrás
 
   // Captura o estado dos inputs de data da tela de filtros para decisão de escopo
   const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
@@ -3263,11 +3284,12 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
   // 🚀 LAÇO ÚNICO EM MEMÓRIA RAM
-  CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
-    const nomeTransp = (linha.transp || "N/A").toString().trim().toUpperCase();
-    const nomeOperador = (linha.operador || "N/A").toString().trim().toUpperCase();
-    const statusCarga = (linha.status || "").toString().toUpperCase();
-    const volumesCarga = Number(linha.volumes) || 0;
+  fonteCacheAtiva.forEach(linha => {
+    // Suporta chaves vindas da action rápida ou do relatório massivo
+    const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
+    const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
+    const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
+    const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
     // Travas organizacionais de privacidade por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
@@ -3275,11 +3297,15 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
 
     // Normaliza de forma segura a data de importação do registro para YYYYMMDD
     let isoLinhaImport = "";
-    if (linha.dtImport && linha.dtImport !== "N/A") {
-      const textoData = linha.dtImport.toString().trim().substring(0, 10);
+    const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
+    if (dataCrua && dataCrua !== "N/A") {
+      const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        isoLinhaImport = partes[2] + partes[1].toString().padStart(2, '0') + partes[0].toString().padStart(2, '0');
+        let dL = partes[0].trim(); let mL = partes[1].trim(); let aL = partes[2].trim().substring(0, 4);
+        if (dL.length === 1) dL = "0" + dL;
+        if (mL.length === 1) mL = "0" + mL;
+        isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
 
@@ -3294,10 +3320,10 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
       };
     }
 
-    const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1;
+    const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1 || statusCarga.indexOf("CANCELADO") !== -1;
 
     if (statusAlvo === "BACKLOG") {
-      // Se o alvo for Backlog, processa estritamente o passivo carimbado do servidor
+      // Se o alvo for Backlog, processa estritamente os dados carimbados do servidor
       if (statusCarga !== "BACKLOG") return;
 
       // Realiza a triagem e dispersão por faixa de atraso
@@ -3320,6 +3346,7 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
+
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
@@ -3377,12 +3404,10 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
             <button onclick="exportarCsvBacklogEspecifico('${item.transportadora}')" style="background: #F4F4F7; border: 1px solid #E5E5EA; color: #8A05BE; font-weight: 700; cursor: pointer; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px; padding: 5px 12px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#8A05BE'; this.style.color='#ffffff';" onmouseout="this.style.background='#F4F4F7'; this.style.color='#8A05BE';">Extrair Base</button>
           `;
         }
-
         // 🔍 Substitua EXCLUSIVAMENTE o bloco 'htmlLinhaSuperior' dentro do seu forEach:
         // =========================================================================
-        // 🎯 AJUSTE CIRÚRGICO: REDISTRIBUIÇÃO DE EIXOS HORIZONTAIS CONTRA SOBREPOSIÇÃO
+        // 🎯 AJUSTE CIRÚRGICA: REDISTRIBUIÇÃO DE EIXOS HORIZONTAIS CONTRA SOBREPOSIÇÃO
         // =========================================================================
-        // Aumentado a coluna da direita para 38% para acomodar com folga os contadores e o botão
         let htmlLinhaSuperior = `
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
             <!-- Coluna 1: Nome da Transportadora (30%) -->
@@ -3443,6 +3468,7 @@ function abrirDashboardKpiDetalhado(statusAlvo) {
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 /**
