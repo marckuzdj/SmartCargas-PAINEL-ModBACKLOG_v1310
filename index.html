@@ -3235,11 +3235,6 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 };
 
 
-/**
- * ENGINE BI V5.6: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 SANITIZADO: Remove acentos do status de busca para alinhar perfeitamente com o payload do servidor
- * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
- */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
@@ -3255,7 +3250,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V5.6] Processando malha gráfica para o alvo: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
+  console.log(`[BI ENGINE V5.8] Processando malha gráfica para o alvo: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3280,8 +3275,9 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // Higieniza também o status da linha vinda do cache para comparação segura
-    const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    // Resgata o status e as intercorrências brutas do cache para tradução
+    const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
+    const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
@@ -3296,7 +3292,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        // Resgata os eixos de texto limpando os espaços individuais de cada string do array
         let dL = partes[0].toString().trim();
         let mL = partes[1].toString().trim();
         let aL = partes[2].toString().trim().substring(0, 4);
@@ -3304,20 +3299,36 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
         
-        isoLinhaImport = `${aL}${mL}${dL}`; // Monta o Texto ISO "YYYYMMDD" limpo na RAM
+        isoLinhaImport = `${aL}${mL}${dL}`; 
       }
     }
+
     // =========================================================================
-
-    const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1 || statusCarga.indexOf("CANCELADO") !== -1;
-
-    // Triagem e aplicação de cortes condicionais baseados no alvo higienizado
-    if (statusAlvo === "BACKLOG") {
-      if (statusCarga !== "BACKLOG") return;
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM TEMPO REAL NA MEMÓRIA RAM
+    // =========================================================================
+    let statusRealTraduzido = "PENDENTE";
+    if (txtStatusRaw === "BACKLOG") {
+      statusRealTraduzido = "BACKLOG";
+    } else if (txtStatusRaw === "" || txtStatusRaw.indexOf("0 /") === 0) {
+      statusRealTraduzido = "PENDENTE";
+    } else if (txtStatusRaw.indexOf("(100%)") !== -1 || txtStatusRaw === "CONCLUIDO") {
+      if (txtIntercRaw.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") !== -1) {
+        statusRealTraduzido = "CONCLUIDO";
+      } else {
+        statusRealTraduzido = "PARCIAL";
+      }
     } else {
-      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) return;
-      if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
+      statusRealTraduzido = "PARCIAL";
     }
+
+    // Filtro inteligente baseado na correspondência real traduzida
+    if (statusAlvo === "BACKLOG") {
+      if (statusRealTraduzido !== "BACKLOG") return;
+    } else {
+      // Confia no filtro prévio do servidor. Se o card clicado for diferente, ignora.
+      if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
+    }
+    // =========================================================================
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
@@ -3333,6 +3344,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
+
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
@@ -3379,7 +3391,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
         
         const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#8A05BE";
         const bgBadge = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(138, 5, 190, 0.1)";
-
         let htmlBotaoExtrair = "";
         if (statusAlvo === "BACKLOG") {
           htmlBotaoExtrair = `
@@ -3434,6 +3445,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 
