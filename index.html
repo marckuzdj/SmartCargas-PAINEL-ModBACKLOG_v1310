@@ -3298,6 +3298,9 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
+    // =========================================================================
+    // 🎯 CORREÇÃO CIRÚRGICA: TRATAMENTO DE ÍNDICES DE ARRAY COMPATÍVEL V8
+    // =========================================================================
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
     
@@ -3305,12 +3308,18 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        let dL = partes.toString().trim(); let mL = partes.toString().trim(); let aL = partes.trim().substring(0, 4);
+        // Captura as posições numéricas puras do array e limpa os caracteres individuais
+        let dL = partes[0].toString().trim();
+        let mL = partes[1].toString().trim();
+        let aL = partes[2].toString().trim().substring(0, 4);
+        
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
-        isoLinhaImport = `${aL}${mL}${dL}`;
+        
+        isoLinhaImport = `${aL}${mL}${dL}`; // Monta "20261020" de forma estável na RAM
       }
     }
+    // =========================================================================
 
     // =========================================================================
     // 🎯 REENGENHARIA CRÍTICA: COMPARAÇÃO POR INCLUSÃO (MOLDE COPIADO DO SERVER)
