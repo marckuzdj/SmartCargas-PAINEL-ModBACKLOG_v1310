@@ -3236,8 +3236,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V6.0: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 INTELIGÊNCIA OPERACIONAL: Classifica dinamicamente status brutos (vazios ou "0 /") em tempo real na RAM
+ * ENGINE BI V6.1: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 SEM TRAVA DE HOJE: Confia 100% no cache pré-filtrado pelo servidor, impedindo o apagão dos 8 cards
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
@@ -3255,7 +3255,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V6.0] Iniciando varredura com classificação dinâmica para: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
+  console.log(`[BI ENGINE V6.1] Iniciando varredura direta para: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3270,7 +3270,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  // 🚀 VARREDURA PROFUNDA COM CLASSIFICAÇÃO TRADUZIDA DE STATUS EM TEMPO REAL
+  // 🚀 VARREDURA DIRETA SEM CORTES ADICIONAIS DE DATA EM RAM
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
@@ -3290,19 +3290,16 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        let dL = partes[0].toString().trim();
-        let mL = partes[1].toString().trim();
-        let aL = partes[2].toString().trim().substring(0, 4);
+        let dL = partes.toString().trim();
+        let mL = partes.toString().trim();
+        let aL = partes.toString().trim().substring(0, 4);
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
         isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: TRADUTOR DINÂMICO DE STATUS EM MEMÓRIA RAM
-    // =========================================================================
-    // Executa a cópia exata da lógica de negócio do seu servidor Código.gs
+    // Classificação dinâmica em tempo real para cruzar dados mistos da rede ou planilha
     let statusRealTraduzido = "PENDENTE";
     
     if (txtStatusRaw === "BACKLOG") {
@@ -3319,10 +3316,13 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
-    // Compara o status real traduzido da linha com o alvo do clique do card
+    // =========================================================================
+    // 🎯 FILTRAGEM DIRETA DE STATUS (MOLDE DEFINITIVO PARA TODOS OS CARDS)
+    // =========================================================================
     if (statusAlvo === "BACKLOG") {
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
+      // Confia 100% no cache trazido pelo servidor! Se o card clicado for diferente, pula.
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
