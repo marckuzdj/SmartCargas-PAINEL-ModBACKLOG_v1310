@@ -3245,6 +3245,11 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
  * 🎯 RESILIENTE: Suporta propriedades mistas (status/STATUS, dtImport/DT_IMPORT, volumes/TTVol) sem zerar o modal
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
+/**
+ * ENGINE BI V5.8: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 ZERO LATÊNCIA: Confia 100% no filtro prévio do servidor, eliminando apagões por conflito de data em RAM
+ * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
+ */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
@@ -3260,7 +3265,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V5.7] Processando malha gráfica para o alvo: ${statusAlvo}. Registros no cache: ${fonteCacheAtiva.length}`);
+  console.log(`[BI ENGINE V5.8] Processando malha gráfica para o alvo: ${statusAlvo}. Registros no cache: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3276,13 +3281,8 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
-  const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-  const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
-
-  // 🚀 VARREDURA PROFUNDA NA FONTE DE CACHE SELECIONADA (SUPORTE A CHAVES MISTAS)
+  // 🚀 VARREDURA PROFUNDA NA FONTE DE CACHE SELECIONADA
   fonteCacheAtiva.forEach(linha => {
-    // Suporta chaves vindas da action rápida (minúsculas) ou do relatório massivo (maiúsculas)
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
@@ -3294,9 +3294,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: CAPTURA TOLERANTE DA DATA DE IMPORTAÇÃO (DT_IMPORT)
-    // =========================================================================
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
     
@@ -3311,23 +3308,20 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
         
-        isoLinhaImport = `${aL}${mL}${dL}`; // Gera "20261020" perfeito na memória RAM
+        isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
+
     // =========================================================================
-
-    const ehConcluido = statusCarga.indexOf("CONCLUIDO") !== -1 || statusCarga.indexOf("CANCELADO") !== -1;
-
-    // Triagem e aplicação de cortes de escopo baseados no alvo
+    // 🎯 REMOVIDA A TRAVA DE DATA DO DIA ANTERIOR QUE CAUSAVA O APAGÃO DOS 24 CARDS
+    // =========================================================================
     if (statusAlvo === "BACKLOG") {
       if (statusCarga !== "BACKLOG") return;
     } else {
-      // Se as caixas de data estiverem vazias, valida contra o dia de hoje
-      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) {
-        return; // Retém simetria estrita com os cards do painel
-      }
+      // Confia estritamente no filtro que veio do cache do servidor!
       if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
     }
+    // =========================================================================
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
@@ -3383,10 +3377,8 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       rankingTransp.forEach((item, index) => {
         const divCard = document.createElement("div");
         divCard.className = "diagnostico-item";
-        
-        // Estilização Nu-Style Premium (Cartão Elevado com cantos arredondados)
         divCard.style.background = "#ffffff"; divCard.style.padding = "16px 20px"; divCard.style.borderRadius = "12px";
-        divCard.style.boxShadow = "0 3px 14px rgba(0, 0, 0, 0.04)"; divCard.style.border = "1px solid #E5E5EA";
+        divCard.style.boxShadow = "0 3px 14 rgba(0, 0, 0, 0.04)"; divCard.style.border = "1px solid #E5E5EA";
         divCard.style.display = "flex"; divCard.style.flexDirection = "column"; divCard.style.gap = "12px";
         divCard.style.width = "100%"; divCard.style.boxSizing = "border-box";
         
@@ -3400,7 +3392,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
           `;
         }
 
-        // 🟢 LINHA SUPERIOR: Redesenho de eixos horizontais para acomodar o botão
         let htmlLinhaSuperior = `
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 12px; width: 30%; min-width: 0;">
@@ -3422,7 +3413,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
           </div>
         `;
 
-        // 🔴 LINHA INFERIOR: Sub-Tabela de Dispersão Exclusiva para Backlog
         let htmlSubTabelaDispersao = "";
         if (statusAlvo === "BACKLOG") {
           htmlSubTabelaDispersao = `
@@ -3449,6 +3439,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 
