@@ -3236,23 +3236,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V5.6: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 SANITIZADO: Remove acentos do status de busca para alinhar perfeitamente com o payload do servidor
- * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
- */
-/**
- * ENGINE BI V5.7: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 RESILIENTE: Suporta propriedades mistas (status/STATUS, dtImport/DT_IMPORT, volumes/TTVol) sem zerar o modal
- * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
- */
-/**
- * ENGINE BI V5.8: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 ZERO LATÊNCIA: Confia 100% no filtro prévio do servidor, eliminando apagões por conflito de data em RAM
- * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
- */
-/**
- * ENGINE BI V5.9: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 BUSCA PARCIAL: Substituída a igualdade estrita (===) por inclusão (indexOf), eliminando o apagão dos cards
+ * ENGINE BI V6.0: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 INTELIGÊNCIA OPERACIONAL: Classifica dinamicamente status brutos (vazios ou "0 /") em tempo real na RAM
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
@@ -3270,7 +3255,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V5.9] Iniciando varredura tolerante de strings para: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
+  console.log(`[BI ENGINE V6.0] Iniciando varredura com classificação dinâmica para: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3285,52 +3270,60 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  // 🚀 VARREDURA PROFUNDA COM COMPARAÇÃO OPERACIONAL BASEADA EM INDEXOF
+  // 🚀 VARREDURA PROFUNDA COM CLASSIFICAÇÃO TRADUZIDA DE STATUS EM TEMPO REAL
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // Purificação completa do status do lote contra divergências de strings
-    const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    // Resgata o status e as intercorrências brutas do cache de dados pesado
+    const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
+    const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
     // Governança de privacidade corporativa por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // =========================================================================
-    // 🎯 CORREÇÃO CIRÚRGICA: TRATAMENTO DE ÍNDICES DE ARRAY COMPATÍVEL V8
-    // =========================================================================
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
-    
     if (dataCrua && dataCrua !== "N/A") {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        // Captura as posições numéricas puras do array e limpa os caracteres individuais
         let dL = partes[0].toString().trim();
         let mL = partes[1].toString().trim();
         let aL = partes[2].toString().trim().substring(0, 4);
-        
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
-        
-        isoLinhaImport = `${aL}${mL}${dL}`; // Monta "20261020" de forma estável na RAM
+        isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
-    // =========================================================================
 
     // =========================================================================
-    // 🎯 REENGENHARIA CRÍTICA: COMPARAÇÃO POR INCLUSÃO (MOLDE COPIADO DO SERVER)
+    // 🎯 INJEÇÃO CIRÚRGICA: TRADUTOR DINÂMICO DE STATUS EM MEMÓRIA RAM
     // =========================================================================
-    if (statusAlvo === "BACKLOG") {
-      if (statusCarga !== "BACKLOG") return;
-    } else {
-      if (statusAlvo !== "TODOS") {
-        // Se o status da linha não contiver o alvo do clique (ex: "CONCLUIDO"), descarta
-        if (statusCarga.indexOf(statusAlvo) === -1) return;
+    // Executa a cópia exata da lógica de negócio do seu servidor Código.gs
+    let statusRealTraduzido = "PENDENTE";
+    
+    if (txtStatusRaw === "BACKLOG") {
+      statusRealTraduzido = "BACKLOG";
+    } else if (txtStatusRaw === "" || txtStatusRaw.indexOf("0 /") === 0) {
+      statusRealTraduzido = "PENDENTE";
+    } else if (txtStatusRaw.indexOf("(100%)") !== -1 || txtStatusRaw === "CONCLUIDO") {
+      if (txtIntercRaw.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") !== -1) {
+        statusRealTraduzido = "CONCLUIDO";
+      } else {
+        statusRealTraduzido = "PARCIAL";
       }
+    } else {
+      statusRealTraduzido = "PARCIAL";
+    }
+
+    // Compara o status real traduzido da linha com o alvo do clique do card
+    if (statusAlvo === "BACKLOG") {
+      if (statusRealTraduzido !== "BACKLOG") return;
+    } else {
+      if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
 
@@ -3338,7 +3331,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
     }
 
-    // Processamento de envelhecimento exclusivo para o Backlog
     if (statusAlvo === "BACKLOG") {
       if (isoLinhaImport === dataOntemISO) mapaAgrupamentoTransp[nomeTransp].ontemCount += 1;
       else if (isoLinhaImport === `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate() - 1).toString().padStart(2, '0')}`) mapaAgrupamentoTransp[nomeTransp].doisDiasCount += 1;
