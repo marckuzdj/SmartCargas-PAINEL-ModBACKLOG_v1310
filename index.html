@@ -3250,6 +3250,11 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
  * 🎯 ZERO LATÊNCIA: Confia 100% no filtro prévio do servidor, eliminando apagões por conflito de data em RAM
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
+/**
+ * ENGINE BI V5.9: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 BUSCA PARCIAL: Substituída a igualdade estrita (===) por inclusão (indexOf), eliminando o apagão dos cards
+ * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
+ */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
@@ -3265,12 +3270,11 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V5.8] Processando malha gráfica para o alvo: ${statusAlvo}. Registros no cache: ${fonteCacheAtiva.length}`);
+  console.log(`[BI ENGINE V5.9] Iniciando varredura tolerante de strings para: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📐 CÁLCULO DINÂMICO DE HOJE E ONTEM NO FORMATO ISO (YYYYMMDD) [20/10/2026]
   const hoje = new Date();
   const diaHoje = hoje.getDate().toString().padStart(2, '0');
   const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
@@ -3281,7 +3285,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  // 🚀 VARREDURA PROFUNDA NA FONTE DE CACHE SELECIONADA
+  // 🚀 VARREDURA PROFUNDA COM COMPARAÇÃO OPERACIONAL BASEADA EM INDEXOF
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
@@ -3301,25 +3305,23 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
       if (partes.length === 3) {
-        let dL = partes[0].toString().trim();
-        let mL = partes[1].toString().trim();
-        let aL = partes[2].toString().trim().substring(0, 4);
-        
+        let dL = partes.toString().trim(); let mL = partes.toString().trim(); let aL = partes.trim().substring(0, 4);
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
-        
         isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
 
     // =========================================================================
-    // 🎯 REMOVIDA A TRAVA DE DATA DO DIA ANTERIOR QUE CAUSAVA O APAGÃO DOS 24 CARDS
+    // 🎯 REENGENHARIA CRÍTICA: COMPARAÇÃO POR INCLUSÃO (MOLDE COPIADO DO SERVER)
     // =========================================================================
     if (statusAlvo === "BACKLOG") {
       if (statusCarga !== "BACKLOG") return;
     } else {
-      // Confia estritamente no filtro que veio do cache do servidor!
-      if (statusCarga !== statusAlvo && statusAlvo !== "TODOS") return;
+      if (statusAlvo !== "TODOS") {
+        // Se o status da linha não contiver o alvo do clique (ex: "CONCLUIDO"), descarta
+        if (statusCarga.indexOf(statusAlvo) === -1) return;
+      }
     }
     // =========================================================================
 
