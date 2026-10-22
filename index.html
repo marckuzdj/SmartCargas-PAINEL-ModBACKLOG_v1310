@@ -1882,32 +1882,28 @@ function executarExtracaoRelatorioBase(event) {
       btn.style.cursor = "pointer";
     }
     
-    if (resposta && resposta.success) {
-      // =======================================================================
-      // 🎯 INJEÇÃO MASTER V6.8: ISOLAMENTO E DUPLO REPOSITÓRIO RAM CONTRA APAGÃO
-      // =======================================================================
-      // Canal A: Abastece o cache compacto exclusivo para os cliques dos 4 cards de KPIs (BI)
-      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
-      
-      // Canal B: Cria um repositório paralelo exclusivo para a tabela operacional e exportação de CSV
-      // (Isso impede que os dados brutos destruam as chaves tratadas de BI)
-      window.CACHE_DADOS_BRUTOS_PLANILHA = resposta.dados || [];
-      // =======================================================================
+// =========================================================================
+// 🎯 CORREÇÃO MASTER V6.9: SEPARAÇÃO DE MEMÓRIA DINÂMICA NO BOTÃO BUSCAR
+// =========================================================================
+if (resposta && resposta.success) {
+  
+  // 1. Abastece o cache com os dados simplificados (Evita o apagão e o alerta dos 4 cards!)
+  CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+  
+  // 2. Abastece a tabela roxa e o extrator de CSV com as colunas brutas completas da planilha
+  CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
 
-      // Atualiza os elementos físicos dos 4 cartões da janela de tela com valores do servidor
-      if (document.getElementById("kpiTotalRomaneios"))
-        document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
-      if (document.getElementById("kpiConcluidos"))
-        document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
-      if (document.getElementById("kpiParciais"))
-        document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-      if (document.getElementById("kpiPendentes"))
-        document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
+  // 3. Atualiza os elementos físicos dos 4 cartões de topo da tela
+  if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+  if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+  if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
+  if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
 
-      // Força a exibição do número histórico absoluto de Backlog salvo em RAM, limpando o spinner
-      if (document.getElementById("kpiBacklog")) {
-        document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
-      }
+  // 4. Força a exibição do número histórico absoluto de Backlog salvo em RAM
+  if (document.getElementById("kpiBacklog")) {
+    document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
+  }
+// =========================================================================
 
       // Gatilho do Toast amigável institucional
       if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
