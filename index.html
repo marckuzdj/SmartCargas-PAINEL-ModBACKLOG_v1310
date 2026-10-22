@@ -3237,7 +3237,7 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 /**
  * ENGINE BI V6.3: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 SIMETRIA ADAPTATIVA: Aplica a trava de HOJE se os campos de data estiverem vazivos, ou aceita o histórico do filtro
+ * 🎯 SIMETRIA ADAPTATIVA: Aplica a trava de HOJE se os campos de data estiverem vazios, ou aceita o histórico do filtro
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
@@ -3270,27 +3270,22 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  // 📐 Captura dinamicamente o estado atual das caixas de filtro da tela
   const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-  // Se ambas as caixas estiverem vazias, significa que os cartões e a tela exibem APENAS o dia de hoje
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 VARREDURA COM SINCRONISMO TEMPORAL ADAPTATIVO
+  // Varredura profunda com ordenação e tradutor de status inline
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // Resgata o status e as intercorrências brutas do cache de dados
     const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
-    const txtIntercRaw = (linha.intercorrencias || App.INTERCORRENCIAS || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
+    const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
-    // Governança de privacidade corporativa por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // Normaliza de forma estável a data de importação da linha para YYYYMMDD
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
     if (dataCrua && dataCrua !== "N/A") {
@@ -3306,7 +3301,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       }
     }
 
-    // Classificação dinâmica em tempo real para cruzar dados mistos da rede ou planilha
     let statusRealTraduzido = "PENDENTE";
     if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
@@ -3322,21 +3316,12 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: FILTRAGEM ADAPTATIVA CONTRA DESCOMPASSO OPERACIONAL
-    // =========================================================================
     if (statusAlvo === "BACKLOG") {
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // 🚨 Se as caixas de data da tela estiverem vazias, força o modal a olhar APENAS hoje, igualzinho o card faz!
-      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) {
-        return; 
-      }
-      
-      // Valida o status do card correspondente
+      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) return;
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
-    // =========================================================================
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
@@ -3352,6 +3337,105 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
+  let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
+    const dados = mapaAgrupamentoTransp[nome];
+    return {
+      transportadora: nome,
+      romaneiosCount: dados.lotesMapeados,
+      volumesCount: dados.volumes,
+      ontem: dados.ontemCount,
+      doisDias: dados.doisDiasCount,
+      quatroMais: dados.quatroMaisDiasCount,
+      percentual: totalGeralAcumuladoFiltro > 0 ? ((dados.lotesMapeados / totalGeralAcumuladoFiltro) * 100).toFixed(1) : "0.0"
+    };
+  }).filter(item => item.romaneiosCount > 0);
+
+  rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
+
+  const containerRanking = document.getElementById("corpoTabelaRankingKpi");
+  const txtTituloModal = document.getElementById("txtTituloModalKpi");
+  
+  if (txtTituloModal) {
+    if (statusAlvo === "BACKLOG") {
+      const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
+      txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${elPeriodoCard ? elPeriodoCard.innerText : "... até ..."})`;
+    } else {
+      const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
+      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
+    }
+  }
+  if (containerRanking) {
+    containerRanking.innerHTML = "";
+    
+    if (rankingTransp.length === 0) {
+      containerRanking.innerHTML = `<div style="padding:20px; text-align:center; color:#6E6E73; font-weight:bold; font-family:sans-serif;">Nenhum romaneio localizado para o seu escopo de filtros.</div>`;
+    } else {
+      rankingTransp.forEach((item, index) => {
+        const divCard = document.createElement("div");
+        divCard.className = "diagnostico-item";
+        divCard.style.background = "#ffffff"; divCard.style.padding = "16px 20px"; divCard.style.borderRadius = "12px";
+        divCard.style.boxShadow = "0 3px 14px rgba(0, 0, 0, 0.04)"; divCard.style.border = "1px solid #E5E5EA";
+        divCard.style.display = "flex"; divCard.style.flexDirection = "column"; divCard.style.gap = "12px";
+        divCard.style.width = "100%"; divCard.style.boxSizing = "border-box";
+        
+        const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#8A05BE";
+        const bgBadge = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(138, 5, 190, 0.1)";
+
+        let htmlBotaoExtrair = "";
+        if (statusAlvo === "BACKLOG") {
+          htmlBotaoExtrair = `
+            <button onclick="exportarCsvBacklogEspecifico('${item.transportadora}')" style="background: #F4F4F7; border: 1px solid #E5E5EA; color: #8A05BE; font-weight: 700; cursor: pointer; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.3px; padding: 5px 12px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#8A05BE'; this.style.color='#ffffff';" onmouseout="this.style.background='#F4F4F7'; this.style.color='#8A05BE';">Extrair Base</button>
+          `;
+        }
+
+        let htmlLinhaSuperior = `
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 12px; width: 30%; min-width: 0;">
+              <span style="font-size: 0.78rem; font-weight: bold; background: ${bgBadge}; color: ${corBarra}; padding: 3px 8px; border-radius: 6px; min-width: 18px; text-align: center; flex-shrink: 0;">${index + 1}</span>
+              <span style="font-weight: 700; color: #1C1C1E; font-size: 0.85rem; font-family: -apple-system, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.transportadora}">${item.transportadora}</span>
+            </div>
+            <div style="width: 32%; display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+              <div style="flex-grow: 1; background: #E5E5EA; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="width: ${item.percentual}%; height: 100%; background: ${corBarra}; border-radius: 4px; transition: width 0.4s;"></div>
+              </div>
+              <span style="font-size: 0.8rem; font-weight: 700; color: ${corBarra}; min-width: 42px; text-align: right; font-family: monospace;">${item.percentual}%</span>
+            </div>
+            <div style="width: 38%; display: flex; justify-content: flex-end; align-items: center; gap: 12px; font-weight: bold; color: #1C1C1E; font-size: 0.80rem; white-space: nowrap; flex-shrink: 0;">
+              <div style="font-family: sans-serif; text-align: right;">
+                <span style="color: ${corBarra}; font-weight: 800;">${item.romaneiosCount}</span> Rom <span style="color: #E5E5EA; margin: 0 2px;">|</span> ${item.volumesCount.toLocaleString()} Vol
+              </div>
+              <div style="flex-shrink: 0;">${htmlBotaoExtrair}</div>
+            </div>
+          </div>
+        `;
+
+        let htmlSubTabelaDispersao = "";
+        if (statusAlvo === "BACKLOG") {
+          htmlSubTabelaDispersao = `
+            <div style="display: flex; gap: 8px; background: #F4F4F7; padding: 10px 14px; border-radius: 8px; width: 100%; box-sizing: border-box; justify-content: space-between; align-items: center;">
+              <div style="font-size: 0.72rem; font-weight: 700; color: #6E6E73; text-transform: uppercase; letter-spacing: 0.3px;">AGING / DIAS DECORRIDOS (PÓS-IMPORT):</div>
+              <div style="display: flex; gap: 16px; font-family: -apple-system, sans-serif;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ Ontem: <span style="color:#FF3B30; font-weight:800;">${item.ontem}</span></div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">⏳ 2 dias: <span style="color:#FF3B30; font-weight:800;">${item.doisDias}</span></div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: #1C1C1E;">🚨 Histórico: <span style="color:#8A05BE; font-weight:800;">${item.quatroMais}</span></div>
+              </div>
+            </div>
+          `;
+        }
+
+        divCard.innerHTML = htmlLinhaSuperior + htmlSubTabelaDispersao;
+        containerRanking.appendChild(divCard);
+      });
+    }
+  }
+
+  const modalKpi = document.getElementById("modalKpiDetalhado");
+  if (modalKpi) {
+    modalKpi.style.setProperty("display", "flex", "important");
+    modalKpi.classList.remove("hidden");
+  }
+} // ◄ Encerra perfeitamente a função principal abrindo espaço estável para a árvore DOM
+
 
 
 /**
