@@ -1873,7 +1873,7 @@ function executarExtracaoRelatorioBase(event) {
   }
 
   const callbackExtracaoName = "cbExtracaoBase_" + Date.now();
-  // 🔍 Procure pelo início do callback dentro de executarExtracaoRelatorioBase e substitua por este trecho:
+  
   window[callbackExtracaoName] = function(resposta) {
     if (btn) {
       btn.disabled = false;
@@ -1884,12 +1884,12 @@ function executarExtracaoRelatorioBase(event) {
     
     if (resposta && resposta.success) {
       // =======================================================================
-      // 🎯 CORREÇÃO MASTER V7.0: INICIALIZAÇÃO DE ESCOPO CONTRA ESTOURO DE TYPOGRAPHY
+      // 🎯 INJEÇÃO MASTER V7.1: SINCRONISMO E ALIMENTAÇÃO DO DUPLO FLUXO RAM
       // =======================================================================
-      // Abastece o cache compacto de BI (usado nos cliques dos 4 cards de KPIs)
+      // Canal A: Abastece o cache compacto de BI (usado nos cliques dos 4 cards de KPIs)
       CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
       
-      // Inicializa e abastece de forma segura a variável global para a tabela e o extrator CSV
+      // Canal B: Abastece de forma segura a variável global para a tabela mestre e o extrator CSV
       window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
       // =======================================================================
 
@@ -1903,8 +1903,6 @@ function executarExtracaoRelatorioBase(event) {
         document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
       }
 
-// =========================================================================
-
       // Gatilho do Toast amigável institucional
       if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
         mostrarToastAviso(resposta.avisoFiltro);
@@ -1913,7 +1911,7 @@ function executarExtracaoRelatorioBase(event) {
         }
       }
 
-      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas processadas. Canais de BI e Grid isolados em RAM.`);
+      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas processadas. Canais de BI e Grid isolados com sucesso.`);
       
       if (terminal) {
         terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
@@ -1929,7 +1927,6 @@ function executarExtracaoRelatorioBase(event) {
       if (hModo) hModo.innerText = resposta.modo === "VISAO_GERAL_ROMANEIOS" ? "VISÃO GERAL (ROMANEIOS)" : "BUSCA DETALHADA";
       if (hTotal) hTotal.innerText = resposta.totalRegistros || 0;
 
-      // Montagem dos cabeçalhos das colunas
       if (hHeaders) {
         hHeaders.innerHTML = `
           <th>NumROM</th>
@@ -1950,11 +1947,12 @@ function executarExtracaoRelatorioBase(event) {
         `;
       }
 
+
       // Renderização do corpo da tabela consumindo o repositório isolado de colunas brutas
       // 🔍 Procure pela linha da tabela (perto da linha 1956) e certifique-se de que está assim:
+      // Renderização do corpo da tabela consumindo o repositório isolado de colunas brutas
       if (hCorpo) {
         hCorpo.innerHTML = ""; 
-        // 🚨 Usa o prefixo do escopo global para impedir o erro de 'undefined' no navegador
         if (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
           hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
         } else {
@@ -1983,24 +1981,26 @@ function executarExtracaoRelatorioBase(event) {
               return strLink;
             };
 
-            const celulaRomaneioRaw = linha.numRomaneio || "N/A";
-            const celulaStatusRaw = linha.status || "PENDENTE";
+            // 🎯 INJEÇÃO CIRÚRGICA: NORMALIZAÇÃO DE VARIÁVEIS INTERNAS CONTRA UNDEFINED
+            const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
+            const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
+            const celulaIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
 
             let linkOuTextoRomaneio = "";
             let linkOuTextoStatus = "";
 
-            if (celulaStatusRaw.toUpperCase().indexOf("CANCELADO") !== -1) {
+            if (celulaStatusRaw.indexOf("CANCELADO") !== -1) {
               linkOuTextoRomaneio = `<span style="color: #8E8E93; font-weight: 700;" title="Carga cancelada operacionalmente">${celulaRomaneioRaw}</span>`;
               linkOuTextoStatus = `<span style="font-weight: 700; color: #8E8E93; text-transform: uppercase;">CANCELADO</span>`;
             } else {
-              const ehConcluidoPorSufixo = linha.status && linha.status.toString().toUpperCase().includes('CONCLUIDO');
+              const ehConcluidoPorSufixo = celulaStatusRaw.includes('CONCLUIDO') || celulaStatusRaw.includes('100%');
               
               if (ehConcluidoPorSufixo || linha.origemDados === "DETALHADO") {
                 linkOuTextoRomaneio = `<a href="#" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'DETALHADO')" title="Clique para abrir detalhes da carga concluída">${celulaRomaneioRaw}</a>`;
                 linkOuTextoStatus = `<span style="font-weight: 700; color: #34c759;">${celulaStatusRaw}</span>`;
               } else {
                 linkOuTextoRomaneio = `<a href="#" style="color: #FF3B30; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'PENDENTES')" title="Clique para ver os bipes pendentes desta carga">${celulaRomaneioRaw}</a>`;
-                const corStatusTexto = linha.status && linha.status.indexOf('PARCIAL') !== -1 ? '#FFCC00' : '#FF3B30';
+                const corStatusTexto = celulaStatusRaw.indexOf('PARCIAL') !== -1 ? '#FFCC00' : '#FF3B30';
                 linkOuTextoStatus = `<span style="font-weight: 700; color: ${corStatusTexto};">${celulaStatusRaw}</span>`;
               }
             }
@@ -2008,19 +2008,19 @@ function executarExtracaoRelatorioBase(event) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td style="text-align: center; vertical-align: middle;">${linkOuTextoRomaneio}</td>
-              <td>${linha.pedidos || 0}</td>
-              <td>${linha.volumes || 0}</td>
-              <td>${linha.operador || "N/A"}</td>
-              <td>${linha.transp || "N/A"}</td>
-              <td>${linha.conferencia || "N/A"}</td>
-              <td>${linha.obs || "N/A"}</td>
-              <td>${linha.endereco || "N/A"}</td>
-              <td>${tratarCelulaImagem(linha.assinatura)}</td>
+              <td>${linha.pedidos || linha.PEDIDOS || 0}</td>
+              <td>${linha.volumes || linha.VOLUMES || 0}</td>
+              <td>${linha.operador || linha.OPERADOR || "N/A"}</td>
+              <td>${linha.transp || linha.TRANSP || "N/A"}</td>
+              <td>${linha.conferencia || linha.CONFERENCIA || "N/A"}</td>
+              <td>${linha.obs || linha.OBS || "N/A"}</td>
+              <td>${linha.endereco || linha.ENDERECO || "N/A"}</td>
+              <td>${tratarCelulaImagem(linha.assinatura || linha.ASSINATURA)}</td>
               <td style="vertical-align: middle;">${linkOuTextoStatus}</td>
-              <td>${linha.intercorrencias || "N/A"}</td>
-              <td>${tratarCelulaImagem(linha.evidencias)}</td>
-              <td>${linha.dtImport || "N/A"}</td>
-              <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || "N/A"}</td>
+              <td>${linha.intercorrencias || linha.INTERCORRENCIAS || "N/A"}</td>
+              <td>${tratarCelulaImagem(linha.evidencias || linha.EVIDENCIAS)}</td>
+              <td>${linha.dtImport || linha.DT_IMPORT || "N/A"}</td>
+              <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || linha.DISPATCH || "N/A"}</td>
               <td style="font-weight: bold; text-align: center;">${selectedUF}</td>
             `;
             hCorpo.appendChild(tr);
@@ -2043,35 +2043,32 @@ function executarExtracaoRelatorioBase(event) {
     }
     delete window[callbackExtracaoName];
   };
-  // Envia as diretrizes completas de filtros mapeados para o endpoint regional ativo
-    // 🎯 DENTRO DA SUA FUNÇÃO executarExtracaoRelatorioBase(event), procure a montagem da URL 
-    // e certifique-se de que os novos parâmetros sejam envelopados na QueryString assim:
-  // 🎯 INJEÇÃO CIRÚRGICA: Captura a intenção de triagem do novo combobox de Despacho
-  const selectedDispatch = document.getElementById("filtroContemDispatch") ? document.getElementById("filtroContemDispatch").value : "TODOS";
 
-  const urlCompletaExtracao = ENDPOINT_REGIONAL_ATIVO + 
-      "?action=extrairRegistrosBaseMestre" + 
-      "&uf=" + encodeURIComponent(selectedUF) + 
-      "&transp=" + encodeURIComponent(selectedTransp) + 
-      "&operador=" + encodeURIComponent(selectedOperador) + 
-      "&documento=" + encodeURIComponent(selectedDoc) + 
-      "&dataImportIni=" + encodeURIComponent(document.getElementById("filtroDataInicial").value) + 
-      "&dataImportFim=" + encodeURIComponent(document.getElementById("filtroDataFinal").value) + 
-      "&dataConfIni=" + encodeURIComponent(document.getElementById("filtroConfInicial").value) + 
-      "&dataConfFim=" + encodeURIComponent(document.getElementById("filtroConfFinal").value) + 
-      "&status=" + encodeURIComponent(selectedStatus) + 
-      
-      // 🎯 INJEÇÃO CIRÚRGICA: Envia a escolha do filtro de Despacho para o back-end mestre
-      "&fDispatch=" + encodeURIComponent(selectedDispatch) + 
-      
-      "&callback=" + callbackExtracaoName;
+  // Envia as diretrizes completas de filtros mapeados para o endpoint regional ativo
+  const selectedDispatch = document.getElementById("filtroContemDispatch") ? document.getElementById("filtroContemDispatch").value : "TODOS";
+  const urlCompletaExtracao = ENDPOINT_REGIONAL_ATIVO +
+    "?action=extrairRegistrosBaseMestre" +
+    "&uf=" + encodeURIComponent(selectedUF) +
+    "&transp=" + encodeURIComponent(selectedTransp) +
+    "&operador=" + encodeURIComponent(selectedOperador) +
+    "&documento=" + encodeURIComponent(selectedDoc) +
+    "&dataImportIni=" + encodeURIComponent(document.getElementById("filtroDataInicial").value) +
+    "&dataImportFim=" + encodeURIComponent(document.getElementById("filtroDataFinal").value) +
+    "&dataConfIni=" + encodeURIComponent(document.getElementById("filtroConfInicial").value) +
+    "&dataConfFim=" + encodeURIComponent(document.getElementById("filtroConfFinal").value) +
+    "&status=" + encodeURIComponent(selectedStatus) +
+    "&fDispatch=" + encodeURIComponent(selectedDispatch) +
+    "&callback=" + callbackExtracaoName;
 
   const scriptExtracaoTag = document.createElement("script");
   scriptExtracaoTag.src = urlCompletaExtracao;
   scriptExtracaoTag.async = true;
-  scriptExtracaoTag.onload = function() { if (scriptExtracaoTag.parentNode) document.body.removeChild(scriptExtracaoTag); };
+  scriptExtracaoTag.onload = function() { 
+    if (scriptExtracaoTag.parentNode) document.body.removeChild(scriptExtracaoTag); 
+  };
   document.body.appendChild(scriptExtracaoTag);
 }
+
 
 /**
  * Função Auxiliar Interconectada para Injetar o Hiperlink de Escape 
