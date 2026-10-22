@@ -1884,78 +1884,28 @@ function executarExtracaoRelatorioBase(event) {
     }
     
     if (resposta && resposta.success) {
-      
       // =======================================================================
-      // 🎯 INJEÇÃO CIRÚRGICA: ATUALIZA KPIs DO TOPO COM OS DADOS DA EXTRAÇÃO PESADA
+      // 🎯 INJEÇÃO MASTER: SINCRONISMO E ESPELHAMENTO DE CACHE DE BI (BOTAO BUSCAR)
       // =======================================================================
-      const elKpiTotal = document.getElementById("kpiTotalRomaneios");
-      const elKpiConcluidos = document.getElementById("kpiConcluidos");
-      const elKpiParciais = document.getElementById("kpiParciais");
-      const elKpiPendentes = document.getElementById("kpiPendentes");
+      // 1. Alimenta o repositório analítico com o lote tratado enviado pelo servidor
+      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
       
-      // O operador bitwise || garante que se o backend não enviar (ex: em UFs antigas), 
-      // o painel mantém o número que já estava na tela em vez de zerar.
-      if (resposta.kpiTotal !== undefined) elKpiTotal.innerText = resposta.kpiTotal;
-      if (resposta.kpiConcluidos !== undefined) elKpiConcluidos.innerText = resposta.kpiConcluidos;
-      if (resposta.kpiParciais !== undefined) elKpiParciais.innerText = resposta.kpiParciais;
-      if (resposta.kpiPendentes !== undefined) elKpiPendentes.innerText = resposta.kpiPendentes;
+      // 2. Retém o lote de dados brutos original em paralelo exclusivo para exportação de CSV
+      CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: PRESERVAÇÃO DO BACKLOG HISTÓRICO GLOBAL E DESTRAVE
-    // =========================================================================
-    const elKpiBacklog = document.getElementById("kpiBacklog");
-    
-    if (elKpiBacklog) {
-      // 1. Resgata o número que já estava no card (calculado na mudança de regional/filtros globais)
-      // Se por algum motivo o valor estiver corrompido ou com o spinner, assume 0
-      let valorExistenteBacklog = parseInt(elKpiBacklog.innerText) || 0;
-      
-      // Se o text mestre ainda era o spinner de carregamento, busca o valor seguro em background
-      if (isNaN(valorExistenteBacklog) || elKpiBacklog.innerHTML.indexOf("spinner") !== -1) {
-        valorExistenteBacklog = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
+      // 3. Atualiza os elementos físicos dos 4 cartões da janela de tela
+      if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+      if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+      if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
+      if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
+
+      // 4. Força a exibição do número histórico absoluto de Backlog salvo em RAM, limpando o spinner
+      if (document.getElementById("kpiBacklog")) {
+        document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
       }
-
-      // 2. Garante o carimbo de "BACKLOG" nas linhas do relatório que se enquadram no critério histórico
-      const hoje = new Date();
-      const objetoOntem = new Date(hoje);
-      objetoOntem.setDate(hoje.getDate() - 1);
-      const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${objetoOntem.getDate().toString().padStart(2, '0')}`;
-
-      const dadosExtraidos = resposta.dados || [];
-      dadosExtraidos.forEach(linha => {
-        const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
-        const intercW = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().toUpperCase();
-        const dataImportW = linha.dtImport || linha.DT_IMPORT || "";
-
-        let isoLinhaImport = "";
-        if (dataImportW && dataImportW !== "N/A") {
-          const textoData = dataImportW.toString().trim().substring(0, 10);
-          const partes = textoData.split("/");
-          if (partes.length === 3) {
-            let dL = partes[0].trim(); let mL = partes[1].trim(); let aL = partes[2].trim().substring(0, 4);
-            if (dL.length === 1) dL = "0" + dL;
-            if (mL.length === 1) mL = "0" + mL;
-            isoLinhaImport = `${aL}${mL}${dL}`;
-          }
-        }
-
-        const atendeDataRetroativa = (isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO);
-        const statusNaoFinalizado = (statusCarga === "" || (statusCarga.indexOf("100%") === -1 && statusCarga.indexOf("CONCLUIDO") === -1 && statusCarga.indexOf("CANCELADO") === -1));
-        const intercorrenciaNaoConcluida = (intercW.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") === -1 && intercW.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") === -1);
-
-        if (atendeDataRetroativa && statusNaoFinalizado && intercorrenciaNaoConcluida) {
-          linha.status = "BACKLOG";
-          linha.STATUS = "BACKLOG";
-        }
-      });
-
-      // 3. Força a exibição do número histórico absoluto na tela, matando o spinner infinito!
-      elKpiBacklog.innerText = valorExistenteBacklog;
-      console.log(`[BACKLOG HISTÓRICO] Card mantido estável com o passivo real da UF: ${valorExistenteBacklog}`);
-    }
-    // =========================================================================
+      // =======================================================================
 		
-      // Gatilho do Toast amigável que já havíamos configurado
+      // Gatilho do Toast amigável institucional
       if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
         mostrarToastAviso(resposta.avisoFiltro);
         if (terminal) {
@@ -1963,15 +1913,12 @@ function executarExtracaoRelatorioBase(event) {
         }
       }
 
-      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas interceptadas.`);
+      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas interceptadas. Cache de BI sincronizado com a tela.`);
       
       if (terminal) {
         terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
         terminal.scrollTop = terminal.scrollHeight;
       }
-		
-      // Salva o payload puro no cache global para o extrator de CSV usar depois
-      CACHE_DADOS_CSV_MIGRACAO = resposta.dados || [];
 
       // Elementos de injeção da tabela operacional do Modal
       const hModo = document.getElementById("txtModoExtracao");
@@ -1981,7 +1928,6 @@ function executarExtracaoRelatorioBase(event) {
 
       if (hModo) hModo.innerText = resposta.modo === "VISAO_GERAL_ROMANEIOS" ? "VISÃO GERAL (ROMANEIOS)" : "BUSCA DETALHADA";
       if (hTotal) hTotal.innerText = resposta.totalRegistros || 0;
-
       // -------------------------------------------------------------------
       // 🌟 MONTAGEM CIRÚRGICA DOS CABEÇALHOS (EXACT MATCH COM A ESPECIFICAÇÃO DE A ATÉ P)
       // -------------------------------------------------------------------
