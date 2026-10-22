@@ -3236,8 +3236,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V6.5: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 SINGLE SOURCE OF TRUTH: Suporta propriedades mistas (status/STATUS, dtImport/DT_IMPORT) de forma tolerante
+ * ENGINE BI V6.6: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 FIXED: Correção estrita na árvore de decisão de status (Separação real de Pendentes e Parciais)
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
@@ -3255,7 +3255,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V6.5] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
+  console.log(`[BI ENGINE V6.6] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3274,18 +3274,15 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 VARREDURA E AGREGAÇÃO DIRETA POR CONFIANÇA DE CACHE
+  // 🚀 VARREDURA PROFUNDA E CLASSIFICAÇÃO ATÓMICA REORDENADA
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: SUPORTE TOLERANTE A CHAVES MISTAS (MAIÚSCULAS/MINÚSCULAS)
-    // =========================================================================
+    // Captura as chaves tolerantes do servidor
     const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
     const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
-    // =========================================================================
     
     // Governança de privacidade corporativa por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
@@ -3306,19 +3303,24 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       }
     }
 
-    // Tradutor Dinâmico de Status em Tempo Real na RAM (Garante simetria com os Cards)
+    // =========================================================================
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM MEMÓRIA RAM (MOLDE REORDENADO V6.6)
+    // =========================================================================
     let statusRealTraduzido = "PENDENTE";
+    
     if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
-    } else if (txtStatusRaw === "" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
+    } else if (txtStatusRaw === "" || txtStatusRaw === "PENDENTE" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
+      // 🚨 TRAVA MESTRE: Força o enquadramento de PENDENTE primeiro se a contagem for zero ou vazia
       statusRealTraduzido = "PENDENTE";
     } else if (txtStatusRaw.indexOf("100%") !== -1 || txtStatusRaw === "CONCLUIDO") {
-      if (txtIntercRaw.indexOf("CONCLUIDO") !== -1 || txtIntercRaw.indexOf("CONCLUÍDO") !== -1) {
+      if (txtIntercRaw.indexOf("CONCLUIDO") !== -1 || txtIntercRaw.indexOf("CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS") !== -1) {
         statusRealTraduzido = "CONCLUIDO";
       } else {
         statusRealTraduzido = "PARCIAL";
       }
     } else {
+      // Qualquer outro tipo de volumetria ativa (ex: "5 / 12") cai em PARCIAL de forma legítima
       statusRealTraduzido = "PARCIAL";
     }
 
@@ -3329,6 +3331,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) return;
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
+    // =========================================================================
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
@@ -3445,6 +3448,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     modalKpi.classList.remove("hidden");
   }
 }
+
 
 
 
