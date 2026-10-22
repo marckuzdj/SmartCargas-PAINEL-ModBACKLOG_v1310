@@ -2481,32 +2481,32 @@ function carregarKpisFiltrosRefinados() {
 
   const callbackKpiRefinadoName = "cbKpiRefinado_" + Date.now();
 
-	// 🔍 MODIFICAÇÃO 2: Vá no callback da sua função carregarKpisFiltrosRefinados()
-	// Procure por window[callbackKpiRefinadoName] e garanta que ele salve o novo pacote:
-	window[callbackKpiRefinadoName] = function(resposta) {
-	  if (resposta && resposta.success) {
-	    if (resposta.dadosSimplificados) {
-	      // 🚀 INJEÇÃO CIRÚRGICA: Atualiza o colchão de segurança do Backlog com o refino da transportadora
-	      CACHE_BACKLOG_GLOBAL_ROTEAMENTO = JSON.parse(JSON.stringify(resposta.dadosSimplificados));
-	    }
-      // Atualiza estritamente os contadores com a nova volumetria filtrada
-      if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
-      if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = Math.max(0, resposta.kpiConcluidos || 0);
-      if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-      if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
-      
-      // =========================================================================
-      // 🎯 INJEÇÃO CIRÚRGICA: ATUALIZAÇÃO DO CONTADOR REAL DE BACKLOG REFINADO
-      // =========================================================================
-      if (document.getElementById("kpiBacklog")) {
-        document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
-      }
-      // =========================================================================
-      
-      console.log("[KPI REFINADO] Todos os 5 contadores de topo atualizados com sucesso.");
+// 🔍 Procure por esta função e atualize EXCLUSIVAMENTE o bloco do callback interno:
+window[callbackKpiRefinadoName] = function(resposta) {
+  if (resposta && resposta.success) {
+    // =========================================================================
+    // 🎯 INJEÇÃO MASTER: ESPELHAMENTO DE LOGICA E SINCRONISMO DE CACHE DE BI
+    // =========================================================================
+    // Alimenta o cache volátil com os dados simplificados que o servidor acabou de recalcular
+    CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+
+    // Atualiza os elementos físicos dos 4 cartões da janela de tela
+    if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+    if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+    if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = resposta.kpiParciais || 0;
+    if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = resposta.kpiPendentes || 0;
+    
+    // Mantém o card de Backlog atualizado de forma síncrona com o valor refinado do servidor
+    if (document.getElementById("kpiBacklog")) {
+      document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
     }
-    delete window[callbackKpiRefinadoName];
-  };
+    
+    console.log(`[KPI REFINADO] Sincronismo concluído. Cache de BI detém ${CACHE_DADOS_CSV_MIGRACAO.length} linhas filtradas.`);
+    // =========================================================================
+  }
+  delete window[callbackKpiRefinadoName];
+};
+
 
   // Dispara a requisição para o Web App ativo enviando os novos critérios de agregação
   const urlKpiRefinado = ENDPOINT_REGIONAL_ATIVO + 
