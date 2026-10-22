@@ -1884,16 +1884,17 @@ function executarExtracaoRelatorioBase(event) {
     
     if (resposta && resposta.success) {
       // =======================================================================
-      // 🎯 INJEÇÃO MASTER V6.7: SINCRONISMO PERFEITO DE DUPLO REPOSITÓRIO RAM
+      // 🎯 INJEÇÃO MASTER V6.8: ISOLAMENTO E DUPLO REPOSITÓRIO RAM CONTRA APAGÃO
       // =======================================================================
-      // Canal A: Abastece o cache compacto exclusivo para os cliques dos 4 cards de KPIs
+      // Canal A: Abastece o cache compacto exclusivo para os cliques dos 4 cards de KPIs (BI)
       CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
       
-      // Canal B: Retém o lote completo de colunas brutas para a tabela do modal e exportação CSV
-      CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
+      // Canal B: Cria um repositório paralelo exclusivo para a tabela operacional e exportação de CSV
+      // (Isso impede que os dados brutos destruam as chaves tratadas de BI)
+      window.CACHE_DADOS_BRUTOS_PLANILHA = resposta.dados || [];
       // =======================================================================
 
-      // Atualiza os elementos físicos dos 4 cartões da janela de tela
+      // Atualiza os elementos físicos dos 4 cartões da janela de tela com valores do servidor
       if (document.getElementById("kpiTotalRomaneios"))
         document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
       if (document.getElementById("kpiConcluidos"))
@@ -1916,14 +1917,14 @@ function executarExtracaoRelatorioBase(event) {
         }
       }
 
-      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas processadas. Canais de BI e Grid sincronizados.`);
+      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas processadas. Canais de BI e Grid isolados em RAM.`);
       
       if (terminal) {
         terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
         terminal.scrollTop = terminal.scrollHeight;
       }
 
-      // Elementos de injeção da tabela operacional do Modal
+      // Elementos de injeção da tabela operacional do Modal principal
       const hModo = document.getElementById("txtModoExtracao");
       const hTotal = document.getElementById("txtTotalLinhas");
       const hHeaders = document.getElementById("headersTabelaRelatorio");
@@ -1953,13 +1954,13 @@ function executarExtracaoRelatorioBase(event) {
         `;
       }
 
-      // Renderização do corpo da tabela
+      // Renderização do corpo da tabela consumindo o repositório isolado de colunas brutas
       if (hCorpo) {
         hCorpo.innerHTML = ""; 
-        if (CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
+        if (window.CACHE_DADOS_BRUTOS_PLANILHA.length === 0) {
           hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
         } else {
-          CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
+          window.CACHE_DADOS_BRUTOS_PLANILHA.forEach(linha => {
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
@@ -2028,7 +2029,7 @@ function executarExtracaoRelatorioBase(event) {
         }
       }
 
-      // Abre visualmente o modal de listagem na tela do usuário
+      // Abre a tela de relatórios detalhados com as linhas preenchidas
       const modalRelatorio = document.getElementById("modalRelatorioDados");
       if (modalRelatorio) {
         modalRelatorio.style.setProperty("display", "flex", "important");
@@ -2043,9 +2044,6 @@ function executarExtracaoRelatorioBase(event) {
     }
     delete window[callbackExtracaoName];
   };
-
-
-
   // Envia as diretrizes completas de filtros mapeados para o endpoint regional ativo
     // 🎯 DENTRO DA SUA FUNÇÃO executarExtracaoRelatorioBase(event), procure a montagem da URL 
     // e certifique-se de que os novos parâmetros sejam envelopados na QueryString assim:
@@ -3147,7 +3145,6 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
  * 🎯 FIXED: Correção estrita na árvore de decisão de status (Separação real de Pendentes e Parciais)
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
-// 🔍 Procure pelo início da função abrirDashboardKpiDetalhado e altere esta linha:
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
@@ -3155,20 +3152,15 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   // Higieniza acentos para evitar conflitos textuais ("CONCLUÍDO" -> "CONCLUIDO")
   const statusAlvo = statusAlvoBruto.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  // =========================================================================
-  // 🎯 INJEÇÃO CIRÚRGICA: UNIFICAÇÃO DA FONTE DE CACHE OPERACIONAL
-  // =========================================================================
-  // Se o alvo for Backlog, consome o repositório histórico isolado (imutável).
-  // Se for qualquer outro card operacional, consome o repositório 'CACHE_DADOS_CSV_MIGRACAO'.
+  // Seleção dinâmica do repositório baseado no alvo do clique
   const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
 
   if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
     alert("⚠️ Por favor, realize uma busca de dados antes de explorar o ranking das Transportadoras.");
     return;
   }
-  // =========================================================================
-  
-  console.log(`[BI ENGINE] Processando malha gráfica. Fonte ativa detém ${fonteCacheAtiva.length} linhas.`);
+
+  console.log(`[BI ENGINE V6.6] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
