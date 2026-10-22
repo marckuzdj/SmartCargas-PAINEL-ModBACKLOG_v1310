@@ -3236,8 +3236,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V6.3: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 SIMETRIA ADAPTATIVA: Aplica a trava de HOJE se os campos de data estiverem vazios, ou aceita o histórico do filtro
+ * ENGINE BI V6.5: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 SINGLE SOURCE OF TRUTH: Suporta propriedades mistas (status/STATUS, dtImport/DT_IMPORT) de forma tolerante
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
@@ -3247,7 +3247,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   // Higieniza acentos para evitar conflitos textuais ("CONCLUÍDO" -> "CONCLUIDO")
   const statusAlvo = statusAlvoBruto.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  // Seleção dinâmica do repositório em memória RAM baseado no alvo purificado
+  // Seleção dinâmica do repositório baseado no alvo do clique
   const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
 
   if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
@@ -3255,7 +3255,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V6.3] Iniciando varredura com simetria adaptativa para: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
+  console.log(`[BI ENGINE V6.5] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3274,15 +3274,20 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
-  // Varredura profunda com ordenação e tradutor de status inline
+  // 🚀 VARREDURA E AGREGAÇÃO DIRETA POR CONFIANÇA DE CACHE
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA: SUPORTE TOLERANTE A CHAVES MISTAS (MAIÚSCULAS/MINÚSCULAS)
+    // =========================================================================
     const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
     const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
+    // =========================================================================
     
+    // Governança de privacidade corporativa por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
@@ -3301,13 +3306,14 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       }
     }
 
+    // Tradutor Dinâmico de Status em Tempo Real na RAM (Garante simetria com os Cards)
     let statusRealTraduzido = "PENDENTE";
     if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
-    } else if (txtStatusRaw === "" || txtStatusRaw.indexOf("0 /") === 0) {
+    } else if (txtStatusRaw === "" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
       statusRealTraduzido = "PENDENTE";
-    } else if (txtStatusRaw.indexOf("(100%)") !== -1 || txtStatusRaw === "CONCLUIDO") {
-      if (txtIntercRaw.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") !== -1) {
+    } else if (txtStatusRaw.indexOf("100%") !== -1 || txtStatusRaw === "CONCLUIDO") {
+      if (txtIntercRaw.indexOf("CONCLUIDO") !== -1 || txtIntercRaw.indexOf("CONCLUÍDO") !== -1) {
         statusRealTraduzido = "CONCLUIDO";
       } else {
         statusRealTraduzido = "PARCIAL";
@@ -3316,6 +3322,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
+    // Filtro por correspondência direta de status mapeado
     if (statusAlvo === "BACKLOG") {
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
@@ -3337,6 +3344,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
+  // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
     return {
@@ -3350,6 +3358,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     };
   }).filter(item => item.romaneiosCount > 0);
 
+  // Ordenação decrescente por volume de romaneios qualificados
   rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
 
   const containerRanking = document.getElementById("corpoTabelaRankingKpi");
@@ -3364,6 +3373,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
     }
   }
+  
   if (containerRanking) {
     containerRanking.innerHTML = "";
     
@@ -3434,7 +3444,8 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     modalKpi.style.setProperty("display", "flex", "important");
     modalKpi.classList.remove("hidden");
   }
-} // ◄ Encerra perfeitamente a função principal abrindo espaço estável para a árvore DOM
+}
+
 
 
 
