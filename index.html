@@ -1949,8 +1949,6 @@ function executarExtracaoRelatorioBase(event) {
 
 
       // Renderização do corpo da tabela consumindo o repositório isolado de colunas brutas
-      // 🔍 Procure pela linha da tabela (perto da linha 1956) e certifique-se de que está assim:
-      // Renderização do corpo da tabela consumindo o repositório isolado de colunas brutas
       if (hCorpo) {
         hCorpo.innerHTML = ""; 
         if (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
@@ -1967,7 +1965,7 @@ function executarExtracaoRelatorioBase(event) {
                 try {
                   const partesDrive = strLink.split("/file/d/");
                   if (partesDrive.length > 1) {
-                    const idArquivo = partesDrive[1].split("/")[0].split("?")[0];
+                    const idArquivo = partesDrive.split("/")[0].split("?")[0];
                     strLink = `https://google.com{idArquivo}&sz=w300`;
                   }
                 } catch (err) {
@@ -1981,10 +1979,13 @@ function executarExtracaoRelatorioBase(event) {
               return strLink;
             };
 
-            // 🎯 INJEÇÃO CIRÚRGICA: NORMALIZAÇÃO DE VARIÁVEIS INTERNAS CONTRA UNDEFINED
+            // 🎯 NORMALIZAÇÃO DE VARIÁVEIS INTERNAS CONTRA UNDEFINED E COLISÃO
             const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
             const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
             const celulaIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
+            
+            // Captura a UF de forma isolada sem colidir com as variáveis globais do cabeçalho
+            const ufCargaLinha = (linha.uf || linha.UF || document.getElementById("filtroUF") ? document.getElementById("filtroUF").value : "UF").toString().trim().toUpperCase();
 
             let linkOuTextoRomaneio = "";
             let linkOuTextoStatus = "";
@@ -2011,7 +2012,7 @@ function executarExtracaoRelatorioBase(event) {
               <td>${linha.pedidos || linha.PEDIDOS || 0}</td>
               <td>${linha.volumes || linha.VOLUMES || 0}</td>
               <td>${linha.operador || linha.OPERADOR || "N/A"}</td>
-              <td>${linha.transp || linha.TRANSP || "N/A"}</td>
+              <td>${linha.transp || pointer.TRANSP || linha.TRANSP || "N/A"}</td>
               <td>${linha.conferencia || linha.CONFERENCIA || "N/A"}</td>
               <td>${linha.obs || linha.OBS || "N/A"}</td>
               <td>${linha.endereco || linha.ENDERECO || "N/A"}</td>
@@ -2021,7 +2022,7 @@ function executarExtracaoRelatorioBase(event) {
               <td>${tratarCelulaImagem(linha.evidencias || linha.EVIDENCIAS)}</td>
               <td>${linha.dtImport || linha.DT_IMPORT || "N/A"}</td>
               <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || linha.DISPATCH || "N/A"}</td>
-              <td style="font-weight: bold; text-align: center;">${selectedUF}</td>
+              <td style="font-weight: bold; text-align: center;">${ufCargaLinha}</td>
             `;
             hCorpo.appendChild(tr);
           });
@@ -2068,6 +2069,7 @@ function executarExtracaoRelatorioBase(event) {
   };
   document.body.appendChild(scriptExtracaoTag);
 }
+
 
 
 /**
