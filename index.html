@@ -3147,6 +3147,7 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
  * 🎯 FIXED: Correção estrita na árvore de decisão de status (Separação real de Pendentes e Parciais)
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
+// 🔍 Procure pelo início da função abrirDashboardKpiDetalhado e altere esta linha:
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
@@ -3154,15 +3155,20 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   // Higieniza acentos para evitar conflitos textuais ("CONCLUÍDO" -> "CONCLUIDO")
   const statusAlvo = statusAlvoBruto.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  // Seleção dinâmica do repositório baseado no alvo do clique
+  // =========================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA: UNIFICAÇÃO DA FONTE DE CACHE OPERACIONAL
+  // =========================================================================
+  // Se o alvo for Backlog, consome o repositório histórico isolado (imutável).
+  // Se for qualquer outro card operacional, consome o repositório 'CACHE_DADOS_CSV_MIGRACAO'.
   const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
 
   if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
     alert("⚠️ Por favor, realize uma busca de dados antes de explorar o ranking das Transportadoras.");
     return;
   }
-
-  console.log(`[BI ENGINE V6.6] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
+  // =========================================================================
+  
+  console.log(`[BI ENGINE] Processando malha gráfica. Fonte ativa detém ${fonteCacheAtiva.length} linhas.`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
