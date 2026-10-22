@@ -1873,8 +1873,8 @@ function executarExtracaoRelatorioBase(event) {
   }
 
   const callbackExtracaoName = "cbExtracaoBase_" + Date.now();
+  // 🔍 Procure pelo início do callback dentro de executarExtracaoRelatorioBase e substitua por este trecho:
   window[callbackExtracaoName] = function(resposta) {
-    // 🎯 Restaura o botão ao estado mestre assim que a rede responde
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = 'Buscar Dados';
@@ -1882,27 +1882,27 @@ function executarExtracaoRelatorioBase(event) {
       btn.style.cursor = "pointer";
     }
     
-// =========================================================================
-// 🎯 CORREÇÃO MASTER V6.9: SEPARAÇÃO DE MEMÓRIA DINÂMICA NO BOTÃO BUSCAR
-// =========================================================================
-if (resposta && resposta.success) {
-  
-  // 1. Abastece o cache com os dados simplificados (Evita o apagão e o alerta dos 4 cards!)
-  CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
-  
-  // 2. Abastece a tabela roxa e o extrator de CSV com as colunas brutas completas da planilha
-  CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
+    if (resposta && resposta.success) {
+      // =======================================================================
+      // 🎯 CORREÇÃO MASTER V7.0: INICIALIZAÇÃO DE ESCOPO CONTRA ESTOURO DE TYPOGRAPHY
+      // =======================================================================
+      // Abastece o cache compacto de BI (usado nos cliques dos 4 cards de KPIs)
+      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+      
+      // Inicializa e abastece de forma segura a variável global para a tabela e o extrator CSV
+      window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
+      // =======================================================================
 
-  // 3. Atualiza os elementos físicos dos 4 cartões de topo da tela
-  if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
-  if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
-  if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-  if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
+      // Atualiza os elementos físicos dos 4 cartões da janela de tela
+      if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+      if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+      if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
+      if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
 
-  // 4. Força a exibição do número histórico absoluto de Backlog salvo em RAM
-  if (document.getElementById("kpiBacklog")) {
-    document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
-  }
+      if (document.getElementById("kpiBacklog")) {
+        document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
+      }
+
 // =========================================================================
 
       // Gatilho do Toast amigável institucional
@@ -1951,12 +1951,15 @@ if (resposta && resposta.success) {
       }
 
       // Renderização do corpo da tabela consumindo o repositório isolado de colunas brutas
+      // 🔍 Procure pela linha da tabela (perto da linha 1956) e certifique-se de que está assim:
       if (hCorpo) {
         hCorpo.innerHTML = ""; 
-        if (window.CACHE_DADOS_BRUTOS_PLANILHA.length === 0) {
+        // 🚨 Usa o prefixo do escopo global para impedir o erro de 'undefined' no navegador
+        if (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
           hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
         } else {
-          window.CACHE_DADOS_BRUTOS_PLANILHA.forEach(linha => {
+          // Varre as colunas brutas completas sem quebrar a execução do script
+          window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
