@@ -1872,302 +1872,208 @@ function executarExtracaoRelatorioBase(event) {
     terminal.scrollTop = terminal.scrollHeight;
   }
 
-  const callbackExtracaoName = "cbExtracaoBase_" + Date.now();
-
-  window[callbackExtracaoName] = function(resposta) {
-    // 🎯 Restaura o botão ao estado mestre assim que a rede responde
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = 'Buscar Dados';
-      btn.style.opacity = "1";
-      btn.style.cursor = "pointer";
-    }
+const callbackExtracaoName = "cbExtracaoBase_" + Date.now();
+window[callbackExtracaoName] = function(resposta) {
+  // 🎯 Restaura o botão ao estado mestre assim que a rede responde
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = 'Buscar Dados';
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  }
+  
+  if (resposta && resposta.success) {
+    // =======================================================================
+    // 🎯 RECONCILIAÇÃO MESTRE: CORREÇÃO DE ESCOPO GLOBAL SEM UNDERLINE
+    // =======================================================================
+    // Canal A: Abastece o cache com os dados simplificados (Salva os 4 cards operacionais)
+    CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
     
-    if (resposta && resposta.success) {
-      
-      // =======================================================================
-      // 🎯 INJEÇÃO CIRÚRGICA: ATUALIZA KPIs DO TOPO COM OS DADOS DA EXTRAÇÃO PESADA
-      // =======================================================================
-      const elKpiTotal = document.getElementById("kpiTotalRomaneios");
-      const elKpiConcluidos = document.getElementById("kpiConcluidos");
-      const elKpiParciais = document.getElementById("kpiParciais");
-      const elKpiPendentes = document.getElementById("kpiPendentes");
-      
-      // O operador bitwise || garante que se o backend não enviar (ex: em UFs antigas), 
-      // o painel mantém o número que já estava na tela em vez de zerar.
-      if (resposta.kpiTotal !== undefined) elKpiTotal.innerText = resposta.kpiTotal;
-      if (resposta.kpiConcluidos !== undefined) elKpiConcluidos.innerText = resposta.kpiConcluidos;
-      if (resposta.kpiParciais !== undefined) elKpiParciais.innerText = resposta.kpiParciais;
-      if (resposta.kpiPendentes !== undefined) elKpiPendentes.innerText = resposta.kpiPendentes;
+    // Canal B: Cria o repositório paralelo para a tabela de 14 colunas e exportador CSV
+    window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
+    // =======================================================================
 
-    // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA: PRESERVAÇÃO DO BACKLOG HISTÓRICO GLOBAL E DESTRAVE
-    // =========================================================================
-    const elKpiBacklog = document.getElementById("kpiBacklog");
-    
-    if (elKpiBacklog) {
-      // 1. Resgata o número que já estava no card (calculado na mudança de regional/filtros globais)
-      // Se por algum motivo o valor estiver corrompido ou com o spinner, assume 0
-      let valorExistenteBacklog = parseInt(elKpiBacklog.innerText) || 0;
-      
-      // Se o text mestre ainda era o spinner de carregamento, busca o valor seguro em background
-      if (isNaN(valorExistenteBacklog) || elKpiBacklog.innerHTML.indexOf("spinner") !== -1) {
-        valorExistenteBacklog = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
-      }
+    // Atualiza os elementos físicos dos 4 cartões da janela de tela
+    if (document.getElementById("kpiTotalRomaneios"))
+      document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+    if (document.getElementById("kpiConcluidos"))
+      document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+    if (document.getElementById("kpiParciais"))
+      document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
+    if (document.getElementById("kpiPendentes"))
+      document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
 
-      // 2. Garante o carimbo de "BACKLOG" nas linhas do relatório que se enquadram no critério histórico
-      const hoje = new Date();
-      const objetoOntem = new Date(hoje);
-      objetoOntem.setDate(hoje.getDate() - 1);
-      const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${objetoOntem.getDate().toString().padStart(2, '0')}`;
-
-      const dadosExtraidos = resposta.dados || [];
-      dadosExtraidos.forEach(linha => {
-        const statusCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
-        const intercW = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().toUpperCase();
-        const dataImportW = linha.dtImport || linha.DT_IMPORT || "";
-
-        let isoLinhaImport = "";
-        if (dataImportW && dataImportW !== "N/A") {
-          const textoData = dataImportW.toString().trim().substring(0, 10);
-          const partes = textoData.split("/");
-          if (partes.length === 3) {
-            let dL = partes[0].trim(); let mL = partes[1].trim(); let aL = partes[2].trim().substring(0, 4);
-            if (dL.length === 1) dL = "0" + dL;
-            if (mL.length === 1) mL = "0" + mL;
-            isoLinhaImport = `${aL}${mL}${dL}`;
-          }
-        }
-
-        const atendeDataRetroativa = (isoLinhaImport !== "" && isoLinhaImport <= dataOntemISO);
-        const statusNaoFinalizado = (statusCarga === "" || (statusCarga.indexOf("100%") === -1 && statusCarga.indexOf("CONCLUIDO") === -1 && statusCarga.indexOf("CANCELADO") === -1));
-        const intercorrenciaNaoConcluida = (intercW.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") === -1 && intercW.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") === -1);
-
-        if (atendeDataRetroativa && statusNaoFinalizado && intercorrenciaNaoConcluida) {
-          linha.status = "BACKLOG";
-          linha.STATUS = "BACKLOG";
-        }
-      });
-
-      // 3. Força a exibição do número histórico absoluto na tela, matando o spinner infinito!
-      elKpiBacklog.innerText = valorExistenteBacklog;
-      console.log(`[BACKLOG HISTÓRICO] Card mantido estável com o passivo real da UF: ${valorExistenteBacklog}`);
+    // Mantém o card de Backlog estático com o valor histórico mestre guardado em RAM
+    if (document.getElementById("kpiBacklog")) {
+      document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
     }
-    // =========================================================================
-		
-      // Gatilho do Toast amigável que já havíamos configurado
-      if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
-        mostrarToastAviso(resposta.avisoFiltro);
-        if (terminal) {
-          terminal.value += `\n[🛡️ SEGURANÇA] -> Filtro padrão ativo: Extraindo apenas faturamento do dia de hoje.`;
-        }
-      }
 
-      console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas interceptadas.`);
-      
+    // Gatilho do Toast amigável institucional
+    if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
+      mostrarToastAviso(resposta.avisoFiltro);
       if (terminal) {
-        terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
-        terminal.scrollTop = terminal.scrollHeight;
+        terminal.value += `\n[🛡️ SEGURANÇA] -> Filtro padrão ativo: Extraindo apenas faturamento do dia de hoje.`;
       }
-		
-      // Salva o payload puro no cache global para o extrator de CSV usar depois
-      CACHE_DADOS_CSV_MIGRACAO = resposta.dados || [];
+    }
 
-      // Elementos de injeção da tabela operacional do Modal
-      const hModo = document.getElementById("txtModoExtracao");
-      const hTotal = document.getElementById("txtTotalLinhas");
-      const hHeaders = document.getElementById("headersTabelaRelatorio");
-      const hCorpo = document.getElementById("corpoTabelaRelatorio");
+    console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas processadas. Canais de BI e Grid isolados.`);
+    
+    if (terminal) {
+      terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
 
-      if (hModo) hModo.innerText = resposta.modo === "VISAO_GERAL_ROMANEIOS" ? "VISÃO GERAL (ROMANEIOS)" : "BUSCA DETALHADA";
-      if (hTotal) hTotal.innerText = resposta.totalRegistros || 0;
+    // Elementos de injeção da tabela operacional do Modal principal
+    const hModo = document.getElementById("txtModoExtracao");
+    const hTotal = document.getElementById("txtTotalLinhas");
+    const hHeaders = document.getElementById("headersTabelaRelatorio");
+    const hCorpo = document.getElementById("corpoTabelaRelatorio");
 
-      // -------------------------------------------------------------------
-      // 🌟 MONTAGEM CIRÚRGICA DOS CABEÇALHOS (EXACT MATCH COM A ESPECIFICAÇÃO DE A ATÉ P)
-      // -------------------------------------------------------------------
-      // 🔍 Procure por este bloco e substitua cirurgicamente:
-      if (hHeaders) {
-        hHeaders.innerHTML = `
-          <th>NumROM</th>
-          <th>TTPedidos</th>
-          <th>TTVol</th>
-          <th>Operador</th>
-          <th>Transp</th>
-          <th>Conferencia</th>
-          <th>OBS</th>
-          <th>ENDERECO</th>
-          <th>ASSINATURA</th>
-          <th>STATUS</th>
-          <th>INTERCORRENCIAS</th>
-          <th>EVIDENCIAS</th>
-          <th>DT Importação</th> <!-- 🚀 🎯 INJEÇÃO CIRÚRGICA DA 14ª COLUNA ALINHADA -->
-          <th>DISPATCH</th>  <!-- 🎯 INJEÇÃO CIRÚRGICA MANDATÓRIA: NOVA COLUNA DE DESPACHO LOGÍSTICO -->
-          <th style="background-color: #222222;">UF</th> <!-- 🎯 Injeção Cirúrgica da Coluna UF -->
-        `;
-      }
+    if (hModo) hModo.innerText = resposta.modo === "VISAO_GERAL_ROMANEIOS" ? "VISÃO GERAL (ROMANEIOS)" : "BUSCA DETALHADA";
+    if (hTotal) hTotal.innerText = resposta.totalRegistros || 0;
 
-      // -------------------------------------------------------------------
-      // 🌟 RENDERIZAÇÃO DO CORPO DA TABELA COM VALIDADOR CASCATA DE IMAGEM .PNG
-      // -------------------------------------------------------------------
-      if (hCorpo) {
-        hCorpo.innerHTML = ""; // Reseta dados fantasmas anteriores
+    if (hHeaders) {
+      hHeaders.innerHTML = `
+        <th>NumROM</th>
+        <th>TTPedidos</th>
+        <th>TTVol</th>
+        <th>Operador</th>
+        <th>Transp</th>
+        <th>Conferencia</th>
+        <th>OBS</th>
+        <th>ENDERECO</th>
+        <th>ASSINATURA</th>
+        <th>STATUS</th>
+        <th>INTERCORRENCIAS</th>
+        <th>EVIDENCIAS</th>
+        <th>DT Importação</th>
+        <th>DISPATCH</th>
+        <th style="background-color: #222222;">UF</th>
+      `;
+    }
 
-        if (CACHE_DADOS_CSV_MIGRACAO.length === 0) {
-          hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
-        } else {
-          // 🔄 ATUALIZAÇÃO CIRÚRGICA: Adicionada a célula da UF no final da linha do modal
-          CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
-            const tratarCelulaImagem = (urlLink) => {
-              if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
-              let strLink = urlLink.toString().trim();
-              let linkOriginalDrive = strLink;
-              
-              // 🎯 ENGENHARIA DE CONVERSÃO: Se for link bruto do Drive, converte para renderização direta
-              if (strLink.toLowerCase().includes("://google.com")) {
-                try {
-                  const partesDrive = strLink.split("/file/d/");
-                  if (partesDrive.length > 1) {
-                    const idArquivo = partesDrive[1].split("/")[0].split("?")[0];
-                    // Injeta o ID no canal oficial de thumbnails de alta performance do Google
-                    strLink = `https://google.com{idArquivo}&sz=w300`;
-                  }
-                } catch (err) {
-                  console.error("[DRIVE CONVERT ERROR]", err);
+    if (hCorpo) {
+      hCorpo.innerHTML = ""; 
+      // 🚨 INTERVENÇÃO SEGURA: A tabela passa a ler o canal bruto isolado
+      if (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
+        hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
+      } else {
+        // Varre as colunas brutas completas sem quebrar a execução do script
+        window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
+          const tratarCelulaImagem = (urlLink) => {
+            if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
+            let strLink = urlLink.toString().trim();
+            let linkOriginalDrive = strLink;
+            
+            if (strLink.toLowerCase().includes("://google.com")) {
+              try {
+                const partesDrive = strLink.split("/file/d/");
+                if (partesDrive.length > 1) {
+                  const idArquivo = partesDrive.split("/")[0].split("?")[0];
+                  strLink = `https://google.com{idArquivo}&sz=w300`;
                 }
+              } catch (err) {
+                console.error("[DRIVE CONVERT ERROR]", err);
               }
-            
-              // Se for uma URL válida estruturada, renderiza a miniatura gráfica clicável
-              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://") || strLink.toLowerCase().includes("://google.com")) {
-                // FALLBACK: Se a imagem falhar por restrição rígida de cookies da conta Google,
-                // transforma automaticamente o texto feio no link interativo "Visualizar Link 🔗"
-                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
-              }
-              
-              return strLink;
-            };
-
-            let celulaRomaneio = linha.numRomaneio || "N/A";
-            if (linha.status === "CONCLUIDO") {
-              celulaRomaneio = `<a href="#" onclick="solicitarBipesFilhosDetalahed('${linha.numRomaneio}', event)" style="color: #8A05BE; font-weight: bold; text-decoration: underline; cursor: pointer;" title="Clique para abrir detalhes da carga">${linha.numRomaneio}</a>`;
             }
-
-            const tr = document.createElement("tr");
             
-            let linkOuTextoRomaneio = "";
-            let linkOuTextoStatus = "";
-            const celulaRomaneioRaw = linha.numRomaneio || "N/A";
-            const celulaStatusRaw = linha.status || "PENDENTE";
+            if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
+              return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
+            }
+            return strLink;
+          };
 
-            // =========================================================================
-            // 🎯 INJEÇÃO CIRÚRGICA: TRATAMENTO SIMPLIFICADO BASEADO NO STATUS DO BACKEND
-            // =========================================================================
-            // Se o status retornado pela planilha de UF contiver a classificação "CANCELADO"
-            if (celulaStatusRaw.toUpperCase().indexOf("CANCELADO") !== -1) {
-              // ❌ CASO CANCELADO: Remove o hyperlink e força texto puro cinza mutado
-              linkOuTextoRomaneio = `<span style="color: #8E8E93; font-weight: 700;" title="Carga cancelada operacionalmente">${celulaRomaneioRaw}</span>`;
-              
-              // Força a exibição do rótulo limpo do status
-              linkOuTextoStatus = `<span style="font-weight: 700; color: #8E8E93; text-transform: uppercase;">CANCELADO</span>`;
+          // 🎯 NORMALIZAÇÃO SEGURA DE VARIÁVEIS CONTRA PROPRIEDADES MISTAS (MAIÚSCULAS/MINÚSCULAS)
+          const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
+          const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
+          const celulaIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
+          const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
+
+          let linkOuTextoRomaneio = "";
+          let linkOuTextoStatus = "";
+
+          if (celulaStatusRaw.indexOf("CANCELADO") !== -1) {
+            linkOuTextoRomaneio = `<span style="color: #8E8E93; font-weight: 700;" title="Carga cancelada operacionalmente">${celulaRomaneioRaw}</span>`;
+            linkOuTextoStatus = `<span style="font-weight: 700; color: #8E8E93; text-transform: uppercase;">CANCELADO</span>`;
+          } else {
+            const ehConcluidoPorSufixo = celulaStatusRaw.includes('CONCLUIDO') || celulaStatusRaw.includes('100%');
+            
+            if (ehConcluidoPorSufixo || linha.origemDados === "DETALHADO") {
+              linkOuTextoRomaneio = `<a href="#" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'DETALHADO')" title="Clique para abrir detalhes da carga concluída">${celulaRomaneioRaw}</a>`;
+              linkOuTextoStatus = `<span style="font-weight: 700; color: #34c759;">${celulaStatusRaw}</span>`;
             } else {
-              // =========================================================================
-              // FLUXO PADRÃO COMPLETO MANTIDO INTACTO PARA CARGAS ATIVAS
-              // =========================================================================
-              const ehConcluidoPorSufixo = linha.status && linha.status.toString().toUpperCase().includes('CONCLUIDO');
-              
-              if (ehConcluidoPorSufixo || linha.origemDados === "DETALHADO") {
-                // 🟢 CONCLUÍDO: Passa 'event' em segundo e 'DETALHADO' em terceiro
-                linkOuTextoRomaneio = `<a href="#" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" 
-                                          onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'DETALHADO')" 
-                                          title="Clique para abrir detalhes da carga concluída">
-                                          ${celulaRomaneioRaw}
-                                       </a>`;
-                
-                linkOuTextoStatus = `<span style="font-weight: 700; color: #34c759;">${celulaStatusRaw}</span>`;
-              } else {
-                // 🟡 NÃO CONCLUÍDO: Passa 'event' em segundo e 'PENDENTES' em terceiro
-                linkOuTextoRomaneio = `<a href="#" style="color: #FF3B30; font-weight: 700; text-decoration: underline; cursor: pointer;" 
-                                          onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'PENDENTES')" 
-                                          title="Clique para ver os bipes pendentes desta carga">
-                                          ${celulaRomaneioRaw}
-                                       </a>`;
-                
-                const corStatusTexto = linha.status && linha.status.indexOf('PARCIAL') !== -1 ? '#FFCC00' : '#FF3B30';
-                linkOuTextoStatus = `<span style="font-weight: 700; color: ${corStatusTexto};">${celulaStatusRaw}</span>`;
-              }
+              linkOuTextoRomaneio = `<a href="#" style="color: #FF3B30; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'PENDENTES')" title="Clique para ver os bipes pendentes desta carga">${celulaRomaneioRaw}</a>`;
+              const corStatusTexto = celulaStatusRaw.indexOf('PARCIAL') !== -1 ? '#FFCC00' : '#FF3B30';
+              linkOuTextoStatus = `<span style="font-weight: 700; color: ${corStatusTexto};">${celulaStatusRaw}</span>`;
             }
+          }
 
-            // O tr.innerHTML permanece idêntico, aplicando as variáveis ajustadas acima
-            tr.innerHTML = `
-              <td style="text-align: center; vertical-align: middle;">${linkOuTextoRomaneio}</td>
-              <td>${linha.pedidos || 0}</td>
-              <td>${linha.volumes || 0}</td>
-              <td>${linha.operador || "N/A"}</td>
-              <td>${linha.transp || "N/A"}</td>
-              <td>${linha.conferencia || "N/A"}</td>
-              <td>${linha.obs || "N/A"}</td>
-              <td>${linha.endereco || "N/A"}</td>
-              <td>${tratarCelulaImagem(linha.assinatura)}</td>
-              <td style="vertical-align: middle;">${linkOuTextoStatus}</td>
-              <td>${linha.intercorrencias || "N/A"}</td>
-              <td>${tratarCelulaImagem(linha.evidencias)}</td>
-              <td>${linha.dtImport || "N/A"}</td>
-			  <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || "N/A"}</td>
-              <td style="font-weight: bold; text-align: center;">${selectedUF}</td>
-            `;
-            hCorpo.appendChild(tr);
-          });
-        }
-      }
-
-
-      // -------------------------------------------------------------------
-      // ABRE VISUALMENTE O MODAL NA TELA DO USUÁRIO
-      // -------------------------------------------------------------------
-      const modalRelatorio = document.getElementById("modalRelatorioDados");
-      if (modalRelatorio) {
-        modalRelatorio.style.setProperty("display", "flex", "important");
-        modalRelatorio.classList.remove("hidden");
-      }
-
-    } else {
-      alert("❌ Falha na esteira transacional:\n" + (resposta.error || "O servidor não conseguiu consolidar a busca profunda."));
-      if (terminal) {
-        terminal.value += `\n[FALHA] -> Resposta do barramento: ${resposta ? resposta.error : 'Sem pacotes de dados'}`;
-        terminal.scrollTop = terminal.scrollHeight;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td style="text-align: center; vertical-align: middle;">${linkOuTextoRomaneio}</td>
+            <td>${linha.pedidos || linha.PEDIDOS || 0}</td>
+            <td>${linha.volumes || linha.VOLUMES || 0}</td>
+            <td>${linha.operador || linha.OPERADOR || "N/A"}</td>
+            <td>${linha.transp || linha.TRANSP || "N/A"}</td>
+            <td>${linha.conferencia || linha.CONFERENCIA || "N/A"}</td>
+            <td>${linha.obs || linha.OBS || "N/A"}</td>
+            <td>${linha.endereco || linha.ENDERECO || "N/A"}</td>
+            <td>${tratarCelulaImagem(linha.assinatura || linha.ASSINATURA)}</td>
+            <td style="vertical-align: middle;">${linkOuTextoStatus}</td>
+            <td>${linha.intercorrencias || linha.INTERCORRENCIAS || "N/A"}</td>
+            <td>${tratarCelulaImagem(linha.evidencias || linha.EVIDENCIAS)}</td>
+            <td>${linha.dtImport || linha.DT_IMPORT || "N/A"}</td>
+            <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || linha.DISPATCH || "N/A"}</td>
+            <td style="font-weight: bold; text-align: center;">${ufCargaLinha}</td>
+          `;
+          hCorpo.appendChild(tr);
+        });
       }
     }
-    delete window[callbackExtracaoName];
-  };
+
+    // Abre a janela de relatórios detalhados com as linhas preenchidas
+    const modalRelatorio = document.getElementById("modalRelatorioDados");
+    if (modalRelatorio) {
+      modalRelatorio.style.setProperty("display", "flex", "important");
+      modalRelatorio.classList.remove("hidden");
+    }
+  } else {
+    alert("❌ Falha na esteira transacional:\n" + (resposta.error || "O servidor não conseguiu consolidar a busca profunda."));
+    if (terminal) {
+      terminal.value += `\n[FALHA] -> Resposta do barramento: ${resposta ? resposta.error : 'Sem pacotes de dados'}`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+  }
+  delete window[callbackExtracaoName];
+};
+
 
   // Envia as diretrizes completas de filtros mapeados para o endpoint regional ativo
-    // 🎯 DENTRO DA SUA FUNÇÃO executarExtracaoRelatorioBase(event), procure a montagem da URL 
-    // e certifique-se de que os novos parâmetros sejam envelopados na QueryString assim:
-  // 🎯 INJEÇÃO CIRÚRGICA: Captura a intenção de triagem do novo combobox de Despacho
   const selectedDispatch = document.getElementById("filtroContemDispatch") ? document.getElementById("filtroContemDispatch").value : "TODOS";
-
-  const urlCompletaExtracao = ENDPOINT_REGIONAL_ATIVO + 
-      "?action=extrairRegistrosBaseMestre" + 
-      "&uf=" + encodeURIComponent(selectedUF) + 
-      "&transp=" + encodeURIComponent(selectedTransp) + 
-      "&operador=" + encodeURIComponent(selectedOperador) + 
-      "&documento=" + encodeURIComponent(selectedDoc) + 
-      "&dataImportIni=" + encodeURIComponent(document.getElementById("filtroDataInicial").value) + 
-      "&dataImportFim=" + encodeURIComponent(document.getElementById("filtroDataFinal").value) + 
-      "&dataConfIni=" + encodeURIComponent(document.getElementById("filtroConfInicial").value) + 
-      "&dataConfFim=" + encodeURIComponent(document.getElementById("filtroConfFinal").value) + 
-      "&status=" + encodeURIComponent(selectedStatus) + 
-      
-      // 🎯 INJEÇÃO CIRÚRGICA: Envia a escolha do filtro de Despacho para o back-end mestre
-      "&fDispatch=" + encodeURIComponent(selectedDispatch) + 
-      
-      "&callback=" + callbackExtracaoName;
+  const urlCompletaExtracao = ENDPOINT_REGIONAL_ATIVO +
+    "?action=extrairRegistrosBaseMestre" +
+    "&uf=" + encodeURIComponent(selectedUF) +
+    "&transp=" + encodeURIComponent(selectedTransp) +
+    "&operador=" + encodeURIComponent(selectedOperador) +
+    "&documento=" + encodeURIComponent(selectedDoc) +
+    "&dataImportIni=" + encodeURIComponent(document.getElementById("filtroDataInicial").value) +
+    "&dataImportFim=" + encodeURIComponent(document.getElementById("filtroDataFinal").value) +
+    "&dataConfIni=" + encodeURIComponent(document.getElementById("filtroConfInicial").value) +
+    "&dataConfFim=" + encodeURIComponent(document.getElementById("filtroConfFinal").value) +
+    "&status=" + encodeURIComponent(selectedStatus) +
+    "&fDispatch=" + encodeURIComponent(selectedDispatch) +
+    "&callback=" + callbackExtracaoName;
 
   const scriptExtracaoTag = document.createElement("script");
   scriptExtracaoTag.src = urlCompletaExtracao;
   scriptExtracaoTag.async = true;
-  scriptExtracaoTag.onload = function() { if (scriptExtracaoTag.parentNode) document.body.removeChild(scriptExtracaoTag); };
+  scriptExtracaoTag.onload = function() { 
+    if (scriptExtracaoTag.parentNode) document.body.removeChild(scriptExtracaoTag); 
+  };
   document.body.appendChild(scriptExtracaoTag);
 }
+
+
 
 /**
  * Função Auxiliar Interconectada para Injetar o Hiperlink de Escape 
@@ -2481,32 +2387,32 @@ function carregarKpisFiltrosRefinados() {
 
   const callbackKpiRefinadoName = "cbKpiRefinado_" + Date.now();
 
-	// 🔍 MODIFICAÇÃO 2: Vá no callback da sua função carregarKpisFiltrosRefinados()
-	// Procure por window[callbackKpiRefinadoName] e garanta que ele salve o novo pacote:
-	window[callbackKpiRefinadoName] = function(resposta) {
-	  if (resposta && resposta.success) {
-	    if (resposta.dadosSimplificados) {
-	      // 🚀 INJEÇÃO CIRÚRGICA: Atualiza o colchão de segurança do Backlog com o refino da transportadora
-	      CACHE_BACKLOG_GLOBAL_ROTEAMENTO = JSON.parse(JSON.stringify(resposta.dadosSimplificados));
-	    }
-      // Atualiza estritamente os contadores com a nova volumetria filtrada
-      if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
-      if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = Math.max(0, resposta.kpiConcluidos || 0);
-      if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-      if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
-      
-      // =========================================================================
-      // 🎯 INJEÇÃO CIRÚRGICA: ATUALIZAÇÃO DO CONTADOR REAL DE BACKLOG REFINADO
-      // =========================================================================
-      if (document.getElementById("kpiBacklog")) {
-        document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
-      }
-      // =========================================================================
-      
-      console.log("[KPI REFINADO] Todos os 5 contadores de topo atualizados com sucesso.");
+// 🔍 Procure por esta função e atualize EXCLUSIVAMENTE o bloco do callback interno:
+window[callbackKpiRefinadoName] = function(resposta) {
+  if (resposta && resposta.success) {
+    // =========================================================================
+    // 🎯 INJEÇÃO MASTER: ESPELHAMENTO DE LOGICA E SINCRONISMO DE CACHE DE BI
+    // =========================================================================
+    // Alimenta o cache volátil com os dados simplificados que o servidor acabou de recalcular
+    CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+
+    // Atualiza os elementos físicos dos 4 cartões da janela de tela
+    if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+    if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+    if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = resposta.kpiParciais || 0;
+    if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = resposta.kpiPendentes || 0;
+    
+    // Mantém o card de Backlog atualizado de forma síncrona com o valor refinado do servidor
+    if (document.getElementById("kpiBacklog")) {
+      document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
     }
-    delete window[callbackKpiRefinadoName];
-  };
+    
+    console.log(`[KPI REFINADO] Sincronismo concluído. Cache de BI detém ${CACHE_DADOS_CSV_MIGRACAO.length} linhas filtradas.`);
+    // =========================================================================
+  }
+  delete window[callbackKpiRefinadoName];
+};
+
 
   // Dispara a requisição para o Web App ativo enviando os novos critérios de agregação
   const urlKpiRefinado = ENDPOINT_REGIONAL_ATIVO + 
@@ -3235,14 +3141,19 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 };
 
 
+/**
+ * ENGINE BI V6.6: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 FIXED: Correção estrita na árvore de decisão de status (Separação real de Pendentes e Parciais)
+ * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
+ */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
 
-  // 🎯 INJEÇÃO CIRÚRGICA: Higienização de acentos para evitar conflito ("CONCLUÍDO" -> "CONCLUIDO")
+  // Higieniza acentos para evitar conflitos textuais ("CONCLUÍDO" -> "CONCLUIDO")
   const statusAlvo = statusAlvoBruto.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  // Seleção inteligente da fonte de cache baseada no alvo purificado
+  // Seleção dinâmica do repositório baseado no alvo do clique
   const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
 
   if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
@@ -3250,12 +3161,11 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V5.8] Processando malha gráfica para o alvo: ${statusAlvo}. Cache: ${fonteCacheAtiva.length} linhas.`);
+  console.log(`[BI ENGINE V6.6] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📐 CÁLCULO DINÂMICO DE HOJE E ONTEM NO FORMATO ISO (YYYYMMDD)
   const hoje = new Date();
   const diaHoje = hoje.getDate().toString().padStart(2, '0');
   const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
@@ -3270,22 +3180,20 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 VARREDURA PROFUNDA NA FONTE DE CACHE SELECIONADA
+  // 🚀 VARREDURA PROFUNDA E CLASSIFICAÇÃO ATÓMICA REORDENADA
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // Resgata o status e as intercorrências brutas do cache para tradução
+    // Captura as chaves tolerantes do servidor
     const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
     const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
+    // Governança de privacidade corporativa por perfil
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // =========================================================================
-    // 🎯 CORREÇÃO CIRÚRGICA: FATIAMENTO RE-CALIBRADO DE SUB-STRINGS DE INDEX
-    // =========================================================================
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
     if (dataCrua && dataCrua !== "N/A") {
@@ -3295,37 +3203,38 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
         let dL = partes[0].toString().trim();
         let mL = partes[1].toString().trim();
         let aL = partes[2].toString().trim().substring(0, 4);
-        
         if (dL.length === 1) dL = "0" + dL;
         if (mL.length === 1) mL = "0" + mL;
-        
-        isoLinhaImport = `${aL}${mL}${dL}`; 
+        isoLinhaImport = `${aL}${mL}${dL}`;
       }
     }
 
     // =========================================================================
-    // 🎯 TRADUTOR DINÂMICO DE STATUS EM TEMPO REAL NA MEMÓRIA RAM
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM MEMÓRIA RAM (MOLDE REORDENADO V6.6)
     // =========================================================================
     let statusRealTraduzido = "PENDENTE";
+    
     if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
-    } else if (txtStatusRaw === "" || txtStatusRaw.indexOf("0 /") === 0) {
+    } else if (txtStatusRaw === "" || txtStatusRaw === "PENDENTE" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
+      // 🚨 TRAVA MESTRE: Força o enquadramento de PENDENTE primeiro se a contagem for zero ou vazia
       statusRealTraduzido = "PENDENTE";
-    } else if (txtStatusRaw.indexOf("(100%)") !== -1 || txtStatusRaw === "CONCLUIDO") {
-      if (txtIntercRaw.indexOf("VOLUMES CONFIRMADOS / CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS/CONCLUIDO") !== -1) {
+    } else if (txtStatusRaw.indexOf("100%") !== -1 || txtStatusRaw === "CONCLUIDO") {
+      if (txtIntercRaw.indexOf("CONCLUIDO") !== -1 || txtIntercRaw.indexOf("CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS") !== -1) {
         statusRealTraduzido = "CONCLUIDO";
       } else {
         statusRealTraduzido = "PARCIAL";
       }
     } else {
+      // Qualquer outro tipo de volumetria ativa (ex: "5 / 12") cai em PARCIAL de forma legítima
       statusRealTraduzido = "PARCIAL";
     }
 
-    // Filtro inteligente baseado na correspondência real traduzida
+    // Filtro por correspondência direta de status mapeado
     if (statusAlvo === "BACKLOG") {
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // Confia no filtro prévio do servidor. Se o card clicado for diferente, ignora.
+      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) return;
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
@@ -3344,7 +3253,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
-
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
@@ -3359,7 +3267,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     };
   }).filter(item => item.romaneiosCount > 0);
 
-  // Ordena do maior acúmulo para o menor (Top-Down)
+  // Ordenação decrescente por volume de romaneios qualificados
   rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
 
   const containerRanking = document.getElementById("corpoTabelaRankingKpi");
@@ -3391,6 +3299,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
         
         const corBarra = statusAlvo === "BACKLOG" ? "#FF3B30" : "#8A05BE";
         const bgBadge = statusAlvo === "BACKLOG" ? "rgba(255, 59, 48, 0.1)" : "rgba(138, 5, 190, 0.1)";
+
         let htmlBotaoExtrair = "";
         if (statusAlvo === "BACKLOG") {
           htmlBotaoExtrair = `
