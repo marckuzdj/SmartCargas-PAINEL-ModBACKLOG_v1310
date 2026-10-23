@@ -1872,189 +1872,180 @@ function executarExtracaoRelatorioBase(event) {
     terminal.scrollTop = terminal.scrollHeight;
   }
 
-const callbackExtracaoName = "cbExtracaoBase_" + Date.now();
-window[callbackExtracaoName] = function(resposta) {
-  // 🎯 Restaura o botão ao estado mestre assim que a rede responde
-  if (btn) {
-    btn.disabled = false;
-    btn.innerHTML = 'Buscar Dados';
-    btn.style.opacity = "1";
-    btn.style.cursor = "pointer";
-  }
-  
+  const callbackExtracaoName = "cbExtracaoBase_" + Date.now();
+  window[callbackExtracaoName] = function(resposta) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Buscar Dados';
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+    }
+    
     if (resposta && resposta.success) {
       // =======================================================================
-      // 🔬 RASTREADOR DE MEMÓRIA (FLUXO DE ENTRADA DO BOTÃO BUSCAR)
+      // 🎯 INJEÇÃO MASTER V7.5: ESCUDO DE PROTEÇÃO CONTRA SOBREESCRITA DE RAM
       // =======================================================================
-      console.log("%c[CAIXA-PRETA] 📥 Resposta de rede recebida com sucesso!", "color: #34c759; font-weight: bold;");
-      console.log(`-> Linhas no payload bruto (resposta.dados): ${resposta.dados ? resposta.dados.length : 0}`);
-      console.log(`-> Linhas no payload de BI (resposta.dadosSimplificados): ${resposta.dadosSimplificados ? resposta.dadosSimplificados.length : 0}`);
-
-      // Grava nas duas variáveis de escopo possíveis para garantir o acoplamento
-      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+      // Deleta instâncias fantasmas locais que possam estar limpando o escopo
+      if (typeof CACHE_DADOS_CSV_MIGRACAO !== "undefined") {
+        CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+      }
+      
+      // Amarra os dados tratados no ponteiro global usando freeze/imutabilidade para impedir resets
       window.CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
       
+      // Guarda o lote bruto completo na variável isolada da tabela de 14 colunas
       window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
-
-      console.log("%c[CAIXA-PRETA] 💾 Memória RAM do Frontend atualizada:", "color: #007aff; font-weight: bold;");
-      console.log("-> Conteúdo da variável 'CACHE_DADOS_CSV_MIGRACAO':", CACHE_DADOS_CSV_MIGRACAO);
-      console.log("-> Conteúdo da variável 'window.CACHE_DADOS_CSV_MIGRACAO':", window.CACHE_DADOS_CSV_MIGRACAO);
       // =======================================================================
 
+      // Atualiza os elementos físicos dos 4 cartões da janela de tela
+      if (document.getElementById("kpiTotalRomaneios"))
+        document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
+      if (document.getElementById("kpiConcluidos"))
+        document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
+      if (document.getElementById("kpiParciais"))
+        document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
+      if (document.getElementById("kpiPendentes"))
+        document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
 
-    // Atualiza os elementos físicos dos 4 cartões da janela de tela
-    if (document.getElementById("kpiTotalRomaneios"))
-      document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
-    if (document.getElementById("kpiConcluidos"))
-      document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
-    if (document.getElementById("kpiParciais"))
-      document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-    if (document.getElementById("kpiPendentes"))
-      document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
-
-    // Mantém o card de Backlog estático com o valor histórico mestre guardado em RAM
-    if (document.getElementById("kpiBacklog")) {
-      document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
-    }
-
-    // Gatilho do Toast amigável institucional
-    if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
-      mostrarToastAviso(resposta.avisoFiltro);
-      if (terminal) {
-        terminal.value += `\n[🛡️ SEGURANÇA] -> Filtro padrão ativo: Extraindo apenas faturamento do dia de hoje.`;
+      if (document.getElementById("kpiBacklog")) {
+        document.getElementById("kpiBacklog").innerText = window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0;
       }
-    }
 
-    console.log(`[SUCESSO] ${resposta.totalRegistros} Linhas processadas. Canais de BI e Grid isolados.`);
-    
-    if (terminal) {
-      terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
-      terminal.scrollTop = terminal.scrollHeight;
-    }
+      // Gatilho do Toast amigável institucional
+      if (resposta.avisoFiltro && resposta.avisoFiltro !== "") {
+        mostrarToastAviso(resposta.avisoFiltro);
+        if (terminal) {
+          terminal.value += `\n[🛡️ SEGURANÇA] -> Filtro padrão ativo: Extraindo apenas faturamento do dia de hoje.`;
+        }
+      }
 
-    // Elementos de injeção da tabela operacional do Modal principal
-    const hModo = document.getElementById("txtModoExtracao");
-    const hTotal = document.getElementById("txtTotalLinhas");
-    const hHeaders = document.getElementById("headersTabelaRelatorio");
-    const hCorpo = document.getElementById("corpoTabelaRelatorio");
+      console.log(`%c[CAIXA-PRETA] 💾 Dados gravados com sucesso! Linhas salvas em BI: ${window.CACHE_DADOS_CSV_MIGRACAO.length}`, "color: #34c759; font-weight: bold;");
+      
+      if (terminal) {
+        terminal.value += `\n[SUCESSO] -> ${resposta.totalRegistros} Registros processados com sucesso na regional.`;
+        terminal.scrollTop = terminal.scrollHeight;
+      }
 
-    if (hModo) hModo.innerText = resposta.modo === "VISAO_GERAL_ROMANEIOS" ? "VISÃO GERAL (ROMANEIOS)" : "BUSCA DETALHADA";
-    if (hTotal) hTotal.innerText = resposta.totalRegistros || 0;
+      // Elementos de injeção da tabela operacional do Modal principal
+      const hModo = document.getElementById("txtModoExtracao");
+      const hTotal = document.getElementById("txtTotalLinhas");
+      const hHeaders = document.getElementById("headersTabelaRelatorio");
+      const hCorpo = document.getElementById("corpoTabelaRelatorio");
 
-    if (hHeaders) {
-      hHeaders.innerHTML = `
-        <th>NumROM</th>
-        <th>TTPedidos</th>
-        <th>TTVol</th>
-        <th>Operador</th>
-        <th>Transp</th>
-        <th>Conferencia</th>
-        <th>OBS</th>
-        <th>ENDERECO</th>
-        <th>ASSINATURA</th>
-        <th>STATUS</th>
-        <th>INTERCORRENCIAS</th>
-        <th>EVIDENCIAS</th>
-        <th>DT Importação</th>
-        <th>DISPATCH</th>
-        <th style="background-color: #222222;">UF</th>
-      `;
-    }
+      if (hModo) hModo.innerText = resposta.modo === "VISAO_GERAL_ROMANEIOS" ? "VISÃO GERAL (ROMANEIOS)" : "BUSCA DETALHADA";
+      if (hTotal) hTotal.innerText = resposta.totalRegistros || 0;
 
-    if (hCorpo) {
-      hCorpo.innerHTML = ""; 
-      // 🚨 INTERVENÇÃO SEGURA: A tabela passa a ler o canal bruto isolado
-      if (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
-        hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
-      } else {
-        // Varre as colunas brutas completas sem quebrar a execução do script
-        window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
-          const tratarCelulaImagem = (urlLink) => {
-            if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
-            let strLink = urlLink.toString().trim();
-            let linkOriginalDrive = strLink;
-            
-            if (strLink.toLowerCase().includes("://google.com")) {
-              try {
-                const partesDrive = strLink.split("/file/d/");
-                if (partesDrive.length > 1) {
-                  const idArquivo = partesDrive.split("/")[0].split("?")[0];
-                  strLink = `https://google.com{idArquivo}&sz=w300`;
+      if (hHeaders) {
+        hHeaders.innerHTML = `
+          <th>NumROM</th>
+          <th>TTPedidos</th>
+          <th>TTVol</th>
+          <th>Operador</th>
+          <th>Transp</th>
+          <th>Conferencia</th>
+          <th>OBS</th>
+          <th>ENDERECO</th>
+          <th>ASSINATURA</th>
+          <th>STATUS</th>
+          <th>INTERCORRENCIAS</th>
+          <th>EVIDENCIAS</th>
+          <th>DT Importação</th>
+          <th>DISPATCH</th>
+          <th style="background-color: #222222;">UF</th>
+        `;
+      }
+
+      // Renderização do corpo da tabela consumindo o repositório de colunas brutas
+      if (hCorpo) {
+        hCorpo.innerHTML = ""; 
+        if (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length === 0) {
+          hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
+        } else {
+          window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
+            const tratarCelulaImagem = (urlLink) => {
+              if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
+              let strLink = urlLink.toString().trim();
+              let linkOriginalDrive = strLink;
+              
+              if (strLink.toLowerCase().includes("://google.com")) {
+                try {
+                  const partesDrive = strLink.split("/file/d/");
+                  if (partesDrive.length > 1) {
+                    const idArquivo = partesDrive.split("/").split("?");
+                    strLink = `https://google.com{idArquivo}&sz=w300`;
+                  }
+                } catch (err) {
+                  console.error("[DRIVE CONVERT ERROR]", err);
                 }
-              } catch (err) {
-                console.error("[DRIVE CONVERT ERROR]", err);
+              }
+              
+              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
+                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
+              }
+              return strLink;
+            };
+
+            const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
+            const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
+            const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
+
+            let linkOuTextoRomaneio = "";
+            let linkOuTextoStatus = "";
+
+            if (celulaStatusRaw.indexOf("CANCELADO") !== -1) {
+              linkOuTextoRomaneio = `<span style="color: #8E8E93; font-weight: 700;" title="Carga cancelada operacionalmente">${celulaRomaneioRaw}</span>`;
+              linkOuTextoStatus = `<span style="font-weight: 700; color: #8E8E93; text-transform: uppercase;">CANCELADO</span>`;
+            } else {
+              const ehConcluidoPorSufixo = celulaStatusRaw.includes('CONCLUIDO') || celulaStatusRaw.includes('100%');
+              
+              if (ehConcluidoPorSufixo || linha.origemDados === "DETALHADO") {
+                linkOuTextoRomaneio = `<a href="#" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'DETALHADO')" title="Clique para abrir detalhes da carga concluída">${celulaRomaneioRaw}</a>`;
+                linkOuTextoStatus = `<span style="font-weight: 700; color: #34c759;">${celulaStatusRaw}</span>`;
+              } else {
+                linkOuTextoRomaneio = `<a href="#" style="color: #FF3B30; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'PENDENTES')" title="Clique para ver os bipes pendentes desta carga">${celulaRomaneioRaw}</a>`;
+                const corStatusTexto = celulaStatusRaw.indexOf('PARCIAL') !== -1 ? '#FFCC00' : '#FF3B30';
+                linkOuTextoStatus = `<span style="font-weight: 700; color: ${corStatusTexto};">${celulaStatusRaw}</span>`;
               }
             }
-            
-            if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
-              return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
-            }
-            return strLink;
-          };
 
-          // 🎯 NORMALIZAÇÃO SEGURA DE VARIÁVEIS CONTRA PROPRIEDADES MISTAS (MAIÚSCULAS/MINÚSCULAS)
-          const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
-          const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
-          const celulaIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
-          const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td style="text-align: center; vertical-align: middle;">${linkOuTextoRomaneio}</td>
+              <td>${linha.pedidos || linha.PEDIDOS || 0}</td>
+              <td>${linha.volumes || linha.VOLUMES || 0}</td>
+              <td>${linha.operador || linha.OPERADOR || "N/A"}</td>
+              <td>${linha.transp || linha.TRANSP || "N/A"}</td>
+              <td>${linha.conferencia || linha.CONFERENCIA || "N/A"}</td>
+              <td>${linha.obs || linha.OBS || "N/A"}</td>
+              <td>${linha.endereco || linha.ENDERECO || "N/A"}</td>
+              <td>${tratarCelulaImagem(linha.assinatura || linha.ASSINATURA)}</td>
+              <td style="vertical-align: middle;">${linkOuTextoStatus}</td>
+              <td>${linha.intercorrencias || linha.INTERCORRENCIAS || "N/A"}</td>
+              <td>${tratarCelulaImagem(linha.evidencias || linha.EVIDENCIAS)}</td>
+              <td>${linha.dtImport || linha.DT_IMPORT || "N/A"}</td>
+              <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || linha.DISPATCH || "N/A"}</td>
+              <td style="font-weight: bold; text-align: center;">${ufCargaLinha}</td>
+            `;
+            hCorpo.appendChild(tr);
+          });
+        }
+      }
 
-          let linkOuTextoRomaneio = "";
-          let linkOuTextoStatus = "";
-
-          if (celulaStatusRaw.indexOf("CANCELADO") !== -1) {
-            linkOuTextoRomaneio = `<span style="color: #8E8E93; font-weight: 700;" title="Carga cancelada operacionalmente">${celulaRomaneioRaw}</span>`;
-            linkOuTextoStatus = `<span style="font-weight: 700; color: #8E8E93; text-transform: uppercase;">CANCELADO</span>`;
-          } else {
-            const ehConcluidoPorSufixo = celulaStatusRaw.includes('CONCLUIDO') || celulaStatusRaw.includes('100%');
-            
-            if (ehConcluidoPorSufixo || linha.origemDados === "DETALHADO") {
-              linkOuTextoRomaneio = `<a href="#" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'DETALHADO')" title="Clique para abrir detalhes da carga concluída">${celulaRomaneioRaw}</a>`;
-              linkOuTextoStatus = `<span style="font-weight: 700; color: #34c759;">${celulaStatusRaw}</span>`;
-            } else {
-              linkOuTextoRomaneio = `<a href="#" style="color: #FF3B30; font-weight: 700; text-decoration: underline; cursor: pointer;" onclick="solicitarBipesFilhosDetalahed('${celulaRomaneioRaw}', event, 'PENDENTES')" title="Clique para ver os bipes pendentes desta carga">${celulaRomaneioRaw}</a>`;
-              const corStatusTexto = celulaStatusRaw.indexOf('PARCIAL') !== -1 ? '#FFCC00' : '#FF3B30';
-              linkOuTextoStatus = `<span style="font-weight: 700; color: ${corStatusTexto};">${celulaStatusRaw}</span>`;
-            }
-          }
-
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td style="text-align: center; vertical-align: middle;">${linkOuTextoRomaneio}</td>
-            <td>${linha.pedidos || linha.PEDIDOS || 0}</td>
-            <td>${linha.volumes || linha.VOLUMES || 0}</td>
-            <td>${linha.operador || linha.OPERADOR || "N/A"}</td>
-            <td>${linha.transp || linha.TRANSP || "N/A"}</td>
-            <td>${linha.conferencia || linha.CONFERENCIA || "N/A"}</td>
-            <td>${linha.obs || linha.OBS || "N/A"}</td>
-            <td>${linha.endereco || linha.ENDERECO || "N/A"}</td>
-            <td>${tratarCelulaImagem(linha.assinatura || linha.ASSINATURA)}</td>
-            <td style="vertical-align: middle;">${linkOuTextoStatus}</td>
-            <td>${linha.intercorrencias || linha.INTERCORRENCIAS || "N/A"}</td>
-            <td>${tratarCelulaImagem(linha.evidencias || linha.EVIDENCIAS)}</td>
-            <td>${linha.dtImport || linha.DT_IMPORT || "N/A"}</td>
-            <td style="font-weight: 600; color: #8A05BE;">${linha.dispatch || linha.DISPATCH || "N/A"}</td>
-            <td style="font-weight: bold; text-align: center;">${ufCargaLinha}</td>
-          `;
-          hCorpo.appendChild(tr);
-        });
+      const modalRelatorio = document.getElementById("modalRelatorioDados");
+      if (modalRelatorio) {
+        modalRelatorio.style.setProperty("display", "flex", "important");
+        modalRelatorio.classList.remove("hidden");
+      }
+    } else {
+      alert("❌ Falha na esteira transacional:\n" + (resposta.error || "O servidor não conseguiu consolidar a busca profunda."));
+      if (terminal) {
+        terminal.value += `\n[FALHA] -> Resposta do barramento: ${resposta ? resposta.error : 'Sem pacotes de dados'}`;
+        terminal.scrollTop = terminal.scrollHeight;
       }
     }
+    delete window[callbackExtracaoName];
+  };
 
-    // Abre a janela de relatórios detalhados com as linhas preenchidas
-    const modalRelatorio = document.getElementById("modalRelatorioDados");
-    if (modalRelatorio) {
-      modalRelatorio.style.setProperty("display", "flex", "important");
-      modalRelatorio.classList.remove("hidden");
-    }
-  } else {
-    alert("❌ Falha na esteira transacional:\n" + (resposta.error || "O servidor não conseguiu consolidar a busca profunda."));
-    if (terminal) {
-      terminal.value += `\n[FALHA] -> Resposta do barramento: ${resposta ? resposta.error : 'Sem pacotes de dados'}`;
-      terminal.scrollTop = terminal.scrollHeight;
-    }
-  }
-  delete window[callbackExtracaoName];
-};
 
 
   // Envia as diretrizes completas de filtros mapeados para o endpoint regional ativo
