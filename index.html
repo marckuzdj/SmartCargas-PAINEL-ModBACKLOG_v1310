@@ -3142,8 +3142,8 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 
 
 /**
- * ENGINE BI V6.6: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 FIXED: Correção estrita na árvore de decisão de status (Separação real de Pendentes e Parciais)
+ * ENGINE BI V6.9: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
+ * 🎯 ZERO LATÊNCIA: Confia 100% no filtro prévio do servidor, eliminando o alerta fantasma de busca pendente
  * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
  */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
@@ -3161,7 +3161,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V6.6] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
+  console.log(`[BI ENGINE V6.9] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
@@ -3170,22 +3170,17 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const diaHoje = hoje.getDate().toString().padStart(2, '0');
   const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
   const anoHoje = hoje.getFullYear();
-  const dataHojeISO = `${anoHoje}${mesHoje}${diaHoje}`;
 
   const objetoOntem = new Date(hoje);
   objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
-  const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
-  const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-  const usarCorteEstritoHoje = (!dataInicialPainel && !dataFinalPainel);
-
-  // 🚀 VARREDURA PROFUNDA E CLASSIFICAÇÃO ATÓMICA REORDENADA
+  // 🚀 VARREDURA DIRETA SEM RE-FILTRAGEM DE DATA EM FRONTE
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // Captura as chaves tolerantes do servidor
+    // Captura as chaves de forma totalmente tolerante (Suporta maiúsculas/minúsculas)
     const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
     const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
@@ -3209,15 +3204,11 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       }
     }
 
-    // =========================================================================
-    // 🎯 TRADUTOR DINÂMICO DE STATUS EM MEMÓRIA RAM (MOLDE REORDENADO V6.6)
-    // =========================================================================
+    // Tradutor Dinâmico de Status em Tempo Real na RAM (Garante simetria absoluta com os cards)
     let statusRealTraduzido = "PENDENTE";
-    
     if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
     } else if (txtStatusRaw === "" || txtStatusRaw === "PENDENTE" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
-      // 🚨 TRAVA MESTRE: Força o enquadramento de PENDENTE primeiro se a contagem for zero ou vazia
       statusRealTraduzido = "PENDENTE";
     } else if (txtStatusRaw.indexOf("100%") !== -1 || txtStatusRaw === "CONCLUIDO") {
       if (txtIntercRaw.indexOf("CONCLUIDO") !== -1 || txtIntercRaw.indexOf("CONCLUÍDO") !== -1 || txtIntercRaw.indexOf("VOLUMES CONFIRMADOS") !== -1) {
@@ -3226,15 +3217,16 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
         statusRealTraduzido = "PARCIAL";
       }
     } else {
-      // Qualquer outro tipo de volumetria ativa (ex: "5 / 12") cai em PARCIAL de forma legítima
       statusRealTraduzido = "PARCIAL";
     }
 
-    // Filtro por correspondência direta de status mapeado
+    // =========================================================================
+    // 🎯 REENGENHARIA CRÍTICA: REMOÇÃO DA TRAVA CORTE-ESTRITO-HOJE QUE ZERAVA A RAM
+    // =========================================================================
     if (statusAlvo === "BACKLOG") {
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      if (usarCorteEstritoHoje && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) return;
+      // Confia 100% no cache trazido pelo servidor! Se o card clicado for diferente, pula.
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
@@ -3253,6 +3245,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     mapaAgrupamentoTransp[nomeTransp].volumes += volumesCarga;
     totalGeralAcumuladoFiltro += 1;
   });
+
   // Converte o mapa em array estruturado e remove transportadoras sem saldo
   let rankingTransp = Object.keys(mapaAgrupamentoTransp).map(nome => {
     const dados = mapaAgrupamentoTransp[nome];
