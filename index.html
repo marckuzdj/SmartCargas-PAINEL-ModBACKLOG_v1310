@@ -1882,16 +1882,25 @@ window[callbackExtracaoName] = function(resposta) {
     btn.style.cursor = "pointer";
   }
   
-  if (resposta && resposta.success) {
-    // =======================================================================
-    // 🎯 RECONCILIAÇÃO MESTRE: CORREÇÃO DE ESCOPO GLOBAL SEM UNDERLINE
-    // =======================================================================
-    // Canal A: Abastece o cache com os dados simplificados (Salva os 4 cards operacionais)
-    CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
-    
-    // Canal B: Cria o repositório paralelo para a tabela de 14 colunas e exportador CSV
-    window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
-    // =======================================================================
+    if (resposta && resposta.success) {
+      // =======================================================================
+      // 🔬 RASTREADOR DE MEMÓRIA (FLUXO DE ENTRADA DO BOTÃO BUSCAR)
+      // =======================================================================
+      console.log("%c[CAIXA-PRETA] 📥 Resposta de rede recebida com sucesso!", "color: #34c759; font-weight: bold;");
+      console.log(`-> Linhas no payload bruto (resposta.dados): ${resposta.dados ? resposta.dados.length : 0}`);
+      console.log(`-> Linhas no payload de BI (resposta.dadosSimplificados): ${resposta.dadosSimplificados ? resposta.dadosSimplificados.length : 0}`);
+
+      // Grava nas duas variáveis de escopo possíveis para garantir o acoplamento
+      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+      window.CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
+      
+      window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
+
+      console.log("%c[CAIXA-PRETA] 💾 Memória RAM do Frontend atualizada:", "color: #007aff; font-weight: bold;");
+      console.log("-> Conteúdo da variável 'CACHE_DADOS_CSV_MIGRACAO':", CACHE_DADOS_CSV_MIGRACAO);
+      console.log("-> Conteúdo da variável 'window.CACHE_DADOS_CSV_MIGRACAO':", window.CACHE_DADOS_CSV_MIGRACAO);
+      // =======================================================================
+
 
     // Atualiza os elementos físicos dos 4 cartões da janela de tela
     if (document.getElementById("kpiTotalRomaneios"))
@@ -3150,11 +3159,25 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
 
-  // Higieniza acentos para evitar conflitos textuais ("CONCLUÍDO" -> "CONCLUIDO")
   const statusAlvo = statusAlvoBruto.toString().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-  // Seleção dinâmica do repositório baseado no alvo do clique
-  const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : CACHE_DADOS_CSV_MIGRACAO;
+  // =======================================================================
+  // 🔬 RASTREADOR DE MEMÓRIA (FLUXO DE LEITURA DO MODAL OPERACIONAL)
+  // =======================================================================
+  console.log(`%c[CAIXA-PRETA] 🔍 Card clicado pelo operador: ${statusAlvo}`, "color: #8A05BE; font-weight: bold;");
+  console.log("-> Estado atual da variável 'CACHE_DADOS_CSV_MIGRACAO':", CACHE_DADOS_CSV_MIGRACAO);
+  console.log("-> Estado atual da variável 'window.CACHE_DADOS_CSV_MIGRACAO':", window.CACHE_DADOS_CSV_MIGRACAO);
+  
+  // Roteamento dinâmico
+  const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : (window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO);
+  
+  console.log("-> Repositório escolhido pela Engine (fonteCacheAtiva):", fonteCacheAtiva);
+  if (fonteCacheAtiva) {
+    console.log(`-> Tamanho (.length) do repositório escolhido: ${fonteCacheAtiva.length}`);
+  } else {
+    console.warn("-> Alerta: O repositório escolhido resultou em UNDEFINED ou NULL!");
+  }
+  // =======================================================================
 
   if (!fonteCacheAtiva || fonteCacheAtiva.length === 0) {
     alert("⚠️ Por favor, realize uma busca de dados antes de explorar o ranking das Transportadoras.");
