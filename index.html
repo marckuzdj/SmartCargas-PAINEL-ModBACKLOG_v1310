@@ -2385,35 +2385,34 @@ function carregarKpisFiltrosRefinados() {
   if (document.getElementById("kpiBacklog")) document.getElementById("kpiBacklog").innerHTML = spinnerHtml;
   // =========================================================================
 
-const callbackKpiRefinadoName = "cbKpiRefinado_" + Date.now();
+  const callbackKpiRefinadoName = "cbKpiRefinado_" + Date.now();
 
+// 🔍 Procure por esta função e atualize EXCLUSIVAMENTE o bloco do callback interno:
 window[callbackKpiRefinadoName] = function(resposta) {
   if (resposta && resposta.success) {
     // =========================================================================
-    // 🎯 INJEÇÃO MASTER: DUPLO CANAL DE CACHE PARA SINCRONISMO DE BI E GRID
+    // 🎯 INJEÇÃO MASTER: ESPELHAMENTO DE LOGICA E SINCRONISMO DE CACHE DE BI
     // =========================================================================
-    // Canal A: Alimenta o cache analítico para os cliques dos 4 cartões de KPIs
+    // Alimenta o cache volátil com os dados simplificados que o servidor acabou de recalcular
     CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados || [];
-
-    // Canal B: Alimenta o cache do grid com os dados completos para manter a tabela íntegra
-    window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
 
     // Atualiza os elementos físicos dos 4 cartões da janela de tela
     if (document.getElementById("kpiTotalRomaneios")) document.getElementById("kpiTotalRomaneios").innerText = resposta.kpiTotal || 0;
     if (document.getElementById("kpiConcluidos")) document.getElementById("kpiConcluidos").innerText = resposta.kpiConcluidos || 0;
-    if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = Math.max(0, resposta.kpiParciais || 0);
-    if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = Math.max(0, resposta.kpiPendentes || 0);
+    if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = resposta.kpiParciais || 0;
+    if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = resposta.kpiPendentes || 0;
     
     // Mantém o card de Backlog atualizado de forma síncrona com o valor refinado do servidor
     if (document.getElementById("kpiBacklog")) {
-      document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : (window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0);
+      document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
     }
     
-    console.log(`[KPI REFINADO] Sincronismo concluído. Cache de BI detém ${CACHE_DADOS_CSV_MIGRACAO.length} linhas e Grid detém ${window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length} linhas.`);
+    console.log(`[KPI REFINADO] Sincronismo concluído. Cache de BI detém ${CACHE_DADOS_CSV_MIGRACAO.length} linhas filtradas.`);
     // =========================================================================
   }
   delete window[callbackKpiRefinadoName];
 };
+
 
   // Dispara a requisição para o Web App ativo enviando os novos critérios de agregação
   const urlKpiRefinado = ENDPOINT_REGIONAL_ATIVO + 
@@ -2993,20 +2992,21 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
   if (resposta && resposta.success) {
 	  
     // =========================================================================
-    // 🎯 INJEÇÃO CIRÚRGICA V7.9: POPULAÇÃO PARALELA DO DUPLO CANAL DE CACHE RAM
+    // 🎯 INJEÇÃO CIRÚRGICA: POPULAÇÃO AUTOMÁTICA DO CACHE GLOBAL DE BI
     // =========================================================================
-    if (resposta.dadosSimplificados) {
-      // Canal A: Abastece o cache compacto exclusivo para os cliques dos 4 cards de KPIs (BI)
-      CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados;
-      
-      // Canal B: Retém as 14 colunas brutas completas da planilha para a tabela operacional e CSV
-      window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = resposta.dados || [];
-      
-      // 🚀 Cópia imutável mestre reservada para a engrenagem da Torre de Backlog
-      CACHE_BACKLOG_GLOBAL_ROTEAMENTO = JSON.parse(JSON.stringify(resposta.dadosSimplificados));
-      
-      console.log(`[CACHE RECONCILIADO] Injetados ${CACHE_BACKLOG_GLOBAL_ROTEAMENTO.length} romaneios em BI e ${window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length} no Grid.`);
-    }
+    // Se o barramento de rede regional devolveu a relação simplificada do dia,
+    // nós alimentamos o cache global em RAM na mesma hora. Isso resolve o travamento
+    // e faz os cliques nos cartões funcionarem instantaneamente na mudança de UF!
+	// 🔍 MODIFICAÇÃO 1: Vá na função window.processarRespostaFiltrosGlobais (Mudança de Regional)
+	// Procure por esta linha onde o cache comum é alimentado e injete a cópia de segurança:
+	if (resposta.dadosSimplificados) {
+	  CACHE_DADOS_CSV_MIGRACAO = resposta.dadosSimplificados;
+	  
+	  // 🚀 INJEÇÃO CIRÚRGICA: Guarda uma cópia imutável mestre para a Torre de Backlog
+	  CACHE_BACKLOG_GLOBAL_ROTEAMENTO = JSON.parse(JSON.stringify(resposta.dadosSimplificados));
+	  
+	  console.log(`[CACHE INTEGRAL] Instanciados ${CACHE_BACKLOG_GLOBAL_ROTEAMENTO.length} romaneios na esteira mestre de Backlog.`);
+	}
     // =========================================================================
 	  
     // 🔥 GATILHO INFALÍVEL: Dispara sempre porque a função nunca é destruída!
@@ -3064,11 +3064,11 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 	  
     if (elKpiTotal) elKpiTotal.innerText = resposta.kpiTotal || 0;
     if (elKpiConcluidos) elKpiConcluidos.innerText = resposta.kpiConcluidos || 0;
-    if (elKpiParciais) elKpiParciais.innerText = Math.max(0, resposta.kpiParciais || 0);
-    if (elKpiPendentes) elKpiPendentes.innerText = Math.max(0, resposta.kpiPendentes || 0);
+    if (elKpiParciais) elKpiParciais.innerText = resposta.kpiParciais || 0;
+    if (elKpiPendentes) elKpiPendentes.innerText = resposta.kpiPendentes || 0;
     
     // =========================================================================
-    // 🎯 CÁLCULO E ATUALIZAÇÃO DO SUBTEXTO DINÂMICO DE DATAS MANTIDO INTACTO
+    // 🎯 INJEÇÃO CIRÚRGICA: CÁLCULO E ATUALIZAÇÃO DO SUBTEXTO DINÂMICO DE DATAS
     // =========================================================================
     const elPeriodoBacklog = document.getElementById("txtPeriodoBacklog");
     
@@ -3076,6 +3076,7 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
       let menorDataISO = "99999999"; 
       let stringMenorDataBr = "";
 
+      // 📅 Captura a data de ontem no fuso horário local para servir de limite final (Last Date)
       const hoje = new Date();
       const ontem = new Date(hoje);
       ontem.setDate(hoje.getDate() - 1);
@@ -3083,11 +3084,14 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
       const diaOntem = ontem.getDate().toString().padStart(2, '0');
       const mesOntem = (ontem.getMonth() + 1).toString().padStart(2, '0');
       const anoOntem = ontem.getFullYear();
-      const stringOntemBr = `${diaOntem}/${mesOntem}/${anoOntem}`;
+      const stringOntemBr = `${diaOntem}/${mesOntem}/${anoOntem}`; // Sua Last Date
 
+      // Varre as cargas recebidas em busca do registro mais antigo da malha (First Date)
       resposta.dadosSimplificados.forEach(linha => {
+        // Ignora se a carga foi concluída ou se a propriedade de data veio corrompida
         if (linha.status === "CONCLUIDO" || !linha.dtImport || linha.dtImport === "N/A" || linha.status === "CANCELADO") return;
 
+        // Isola os 10 primeiros caracteres (DD/MM/YYYY) de forma limpa
         const dataLinhaBr = linha.dtImport.toString().trim().substring(0, 10);
         const partes = dataLinhaBr.split("/");
         
@@ -3095,11 +3099,12 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
           const isoLinha = partes[2] + partes[1].padStart(2, '0') + partes[0].padStart(2, '0');
           if (isoLinha < menorDataISO) {
             menorDataISO = isoLinha;
-            stringMenorDataBr = dataLinhaBr;
+            stringMenorDataBr = dataLinhaBr; // Salva a First Date válida
           }
         }
       });
 
+      // Se localizou alguma pendência antiga, renderiza a faixa de atraso na tela
       if (stringMenorDataBr !== "") {
         elPeriodoBacklog.innerText = `${stringMenorDataBr} até ${stringOntemBr}`;
       } else {
@@ -3134,7 +3139,6 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
     if (selectOperador) { selectOperador.innerHTML = '<option value="" selected>TODOS</option>'; selectOperador.disabled = false; }
   }
 };
-
 
 
 /**
