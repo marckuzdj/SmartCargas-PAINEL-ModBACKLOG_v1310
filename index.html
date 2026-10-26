@@ -2148,58 +2148,69 @@ function solicitarBipesFilhosDetalahed(numRomaneio, event, origem) {
   }
 
   const callbackSubName = "cbSubDetalhes_" + Date.now();
-
   window[callbackSubName] = function(resposta) {
     if (resposta && resposta.success) {
       if (corpoSubTable) {
         corpoSubTable.innerHTML = ""; // Limpa a linha de carregamento
         
         if (!resposta.dados || resposta.dados.length === 0) {
-          corpoSubTable.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #6E6E73;">Nenhum componente físico localizado no detalhado para este lote.</td></tr>';
+          corpoSubTable.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: #6E6E73;">Nenhum componente físico localizado no detalhado para este lote.</td></tr>';
           return;
         }
 
-        // 🔍 Procure por este laço dentro da função solicitarBipesFilhosDetalahed e substitua:
-        resposta.dados.forEach(item => {
-          // Captura o termo atual que o operador buscou na Dashboard (em caixa alta)
-          const termoBuscado = document.getElementById("filtroDocumento").value.trim().toUpperCase();
-          
-          // Função auxiliar interna para verificar se o valor daquela célula bate com a busca e aplicar a classe de spotlight
-          const aplicarSpotlightSeDerMatch = (valorCelula) => {
-            if (!valorCelula) return "padding: 10px 15px;";
-            const textoCelula = valorCelula.toString().trim().toUpperCase();
-            
-            // 🎯 SE ACENDER: Se o operador buscou algo e essa célula contém o termo, aplica o destaque visual roxo corporativo suave
-            if (termoBuscado !== "" && textoCelula.indexOf(termoBuscado) !== -1) {
-              return "padding: 10px 15px; background-color: rgba(138, 5, 190, 0.15); color: #8A05BE; font-weight: bold; border: 1.5px solid #8A05BE; border-radius: 4px; box-shadow: inset 0 0 4px rgba(138, 5, 190, 0.2); transition: all 0.3s ease;";
-            }
-            return "padding: 10px 15px;"; // Estilo limpo padrão se não for o alvo
-          };
+        // =====================================================================
+        // 🚀 PERFORMANCE ENGINE: CAPTURA ÚNICA E ALFORGE EM FRAGMENTO DOM
+        // =====================================================================
+        // 🎯 OTIMIZAÇÃO 1: Captura o termo do input uma única vez FORA do laço
+        const filtroEl = document.getElementById("filtroDocumento");
+        const termoBuscado = filtroEl ? filtroEl.value.trim().toUpperCase() : "";
+        
+        // 🎯 OTIMIZAÇÃO 2: Cria o fragmento invisível na RAM do navegador (Sem Reflow)
+        const fragmentoMemoriaDOM = document.createDocumentFragment();
 
+        // Função auxiliar interna para reaproveitamento estático de estilos
+        const aplicarSpotlightSeDerMatch = (valorCelula) => {
+          if (!valorCelula) return "padding: 10px 15px;";
+          const textoCelula = valorCelula.toString().trim().toUpperCase();
+          
+          if (termoBuscado !== "" && textoCelula.indexOf(termoBuscado) !== -1) {
+            return "padding: 10px 15px; background-color: rgba(138, 5, 190, 0.15); color: #8A05BE; font-weight: bold; border: 1.5px solid #8A05BE; border-radius: 4px; box-shadow: inset 0 0 4px rgba(138, 5, 190, 0.2); transition: all 0.3s ease;";
+          }
+          return "padding: 10px 15px;";
+        };
+
+        // Varre a matriz de bipes em velocidade de memória RAM
+        resposta.dados.forEach(item => {
           const tr = document.createElement("tr");
           tr.style.borderBottom = "1px solid #E5E5EA";
           
-          // Injeta dinamicamente o estilo inline gerado pela função de spotlight em cada uma das 6 colunas alvo
-		 // 🔍 Substitua o bloco da página 3 para incluir a 8ª coluna (item.dataConf):
-		 tr.innerHTML = `
-		 <td style="${aplicarSpotlightSeDerMatch(item.ov)} font-weight: 600;">${item.ov || "N/A"}</td>
-		 <td style="${aplicarSpotlightSeDerMatch(item.fornecCross)}">${item.fornecCross || "N/A"}</td>
-		 <td style="${aplicarSpotlightSeDerMatch(item.nfCross)}">${item.nfCross || "N/A"}</td>
-		 <td style="${aplicarSpotlightSeDerMatch(item.fornecLast)}">${item.fornecLast || "N/A"}</td>
-		 <td style="${aplicarSpotlightSeDerMatch(item.nfLast)}">${item.nfLast || "N/A"}</td>
-		 <td style="padding: 10px 15px; font-weight: bold;">${item.volumes || 0}</td>
-		 <td style="padding: 10px 15px; color: #8A05BE; font-weight: 600;">${item.conferente || "N/A"}</td>
-		 <td style="padding: 10px 15px; white-space: nowrap;">${item.dataConf || "N/A"}</td>
-		 <td style="padding: 10px 15px; white-space: nowrap; font-weight: bold;">${item.dataOperador || "N/A"}</td> <!-- 🚀 NOVA COLUNA DATA OPERADOR -->
-		 `;
-          corpoSubTable.appendChild(tr);
+          tr.innerHTML = `
+            <td style="${aplicarSpotlightSeDerMatch(item.ov)} font-weight: 600;">${item.ov || "N/A"}</td>
+            <td style="${aplicarSpotlightSeDerMatch(item.fornecCross)}">${item.fornecCross || "N/A"}</td>
+            <td style="${aplicarSpotlightSeDerMatch(item.nfCross)}">${item.nfCross || "N/A"}</td>
+            <td style="${aplicarSpotlightSeDerMatch(item.fornecLast)}">${item.fornecLast || "N/A"}</td>
+            <td style="${aplicarSpotlightSeDerMatch(item.nfLast)}">${item.nfLast || "N/A"}</td>
+            <td style="padding: 10px 15px; font-weight: bold;">${item.volumes || 0}</td>
+            <td style="padding: 10px 15px; color: #8A05BE; font-weight: 600;">${item.conferente || "N/A"}</td>
+            <td style="padding: 10px 15px; white-space: nowrap;">${item.dataConf || "N/A"}</td>
+            <td style="padding: 10px 15px; white-space: nowrap; font-weight: bold;">${item.dataOperador || "N/A"}</td>
+          `;
+          
+          // Anexa a linha direto na memória interna do fragmento
+          fragmentoMemoriaDOM.appendChild(tr);
         });
+
+        // 🔥 INJEÇÃO ATÔMICA: Descarrega todas as linhas na tela de uma só vez!
+        corpoSubTable.appendChild(fragmentoMemoriaDOM);
+        console.log(`[SUB-TABELA] Renderização instantânea concluída para ${resposta.dados.length} bipes.`);
+        // =====================================================================
       }
     } else {
-      if (corpoSubTable) corpoSubTable.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #d93025; font-weight: bold; padding: 20px;">Erro: ${resposta.error || "Falha de rede."}</td></tr>`;
+      if (corpoSubTable) corpoSubTable.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #d93025; font-weight: bold; padding: 20px;">Erro: ${resposta.error || "Falha de rede."}</td></tr>`;
     }
     delete window[callbackSubName];
   };
+
 
   // 2. Substitua o bloco de montagem da URL por este trecho atualizado:
   const urlSubBusca = ENDPOINT_REGIONAL_ATIVO + 
