@@ -3222,10 +3222,13 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
+    // =========================================================================
+    // 🎯 VERSÃO INTEGRADA V12.0: ENGENHARIA TEMPORAL UNIFICADA SEM DUPLICIDADE
+    // =========================================================================
     // Captura e higieniza a string de data de importação crua da linha
     const dataCrua = (linha.dtImport || linha.DT_IMPORT || "N/A").toString().trim();
 
-    // 🎯 DECLARAÇÃO ÚNICA: Evita o erro de Identifier 'already been declared'
+    // 🟢 PRIMEIRA OCORRÊNCIA (A ÚNICA QUE DEVE FICAR): Processa e limpa a data da linha
     let isoLinhaImportTratada = "";
     if (dataCrua && dataCrua !== "N/A") {
       const stringLimpaDeDezChars = dataCrua.substring(0, 10).trim();
@@ -3243,7 +3246,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     }
 
     // =========================================================================
-    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM V11.6 (USANDO A PROPRIEDADE UNIFICADA)
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM (EXPURGO DE CANCELADOS)
     // =========================================================================
     let statusRealTraduzido = "PENDENTE";
     
@@ -3263,18 +3266,39 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
-    // Se a linha for uma carga cancelada operacionalmente, descarta no ato
+    // Se o registro for uma carga cancelada operacionalmente, descarta no ato
     if (statusRealTraduzido === "CANCELADO") return;
 
+    // 📅 Geração segura do carimbo numérico do dia atual no Frontend (Ex: "20261027")
+    const hojeLocal = new Date();
+    const diaL = hojeLocal.getDate().toString().padStart(2, '0');
+    const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
+    const anoL = hojeLocal.getFullYear();
+    const varDataHojeISO = `${anoL}${mesL}${diaL}`;
+
+    // 🔍 Captura se os inputs de data da Dashboard estão limpos ou preenchidos
+    const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
+    const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+    const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
+
+    // ❌ 🛑 A SEGUNDA OCORRÊNCIA QUE REPETIA 'let isoLinhaImportTratada = ...' FOI REMOVIDA DAQUI!
+    // O validador abaixo agora consome de forma direta a variável mestre processada no topo.
+
     if (statusAlvo === "BACKLOG") {
+      // 🚨 CANAL BACKLOG: Só aceita registros legítimos do passivo histórico
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // 🚨 Usa a nova variável única tratada de escopo para validar o corte diário de hoje
+      // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
+      // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
+      // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
       if (estaoFiltrosDeDataVazios && isoLinhaImportTratada !== "" && isoLinhaImportTratada !== varDataHojeISO) {
-        return; 
+        return; // Descarta carga retroativa do modal ativo de hoje!
       }
+
+      // Aplica o filtro específico do card que o operador clicou de fato
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
+    // =========================================================================
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
