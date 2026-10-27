@@ -3252,17 +3252,34 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     }
 
     // =========================================================================
-    // 🎯 FILTRAGEM DE DUPLO ESCOPO V11.0 (FIX: ESCOPO DE DATAS E SEGURANÇA RAM)
+    // 🎯 FILTRAGEM DE DUPLO ESCOPO V11.2 (FIX: NORMALIZADOR TEMPORAL UNIFICADO)
     // =========================================================================
     // Se o registro for uma carga cancelada operacionalmente, descarta no ato
     if (statusRealTraduzido === "CANCELADO") return;
 
-    // Garante a declaração segura da variável de controle de data local (Evita o ReferenceError)
+    // 📅 Geração segura do carimbo numérico do dia atual no Frontend (Ex: "20261027")
     const hojeLocal = new Date();
     const diaL = hojeLocal.getDate().toString().padStart(2, '0');
     const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
     const anoL = hojeLocal.getFullYear();
     const varDataHojeISO = `${anoL}${mesL}${diaL}`;
+
+    // 🚀 INJEÇÃO CIRÚRGICA: Normaliza a data da linha para garantir match exato (Independente de conter Horas/Barras)
+    let isoLinhaImportTratada = "";
+    if (isoLinhaImport && isoLinhaImport !== "N/A") {
+      const stringLimpaDeDezChars = isoLinhaImport.toString().trim().substring(0, 10);
+      
+      if (stringLimpaDeDezChars.indexOf("/") !== -1) {
+        // Se a string contiver barras (Formato vindo do botão Buscar: "27/10/2026")
+        const partesData = stringLimpaDeDezChars.split("/");
+        if (partesData.length === 3) {
+          isoLinhaImportTratada = partesData[2] + partesData[1].padStart(2, '0') + partesData[0].padStart(2, '0');
+        }
+      } else {
+        // Se já vier no formato numérico limpo (Formato vindo da troca de UF: "20261027")
+        isoLinhaImportTratada = stringLimpaDeDezChars;
+      }
+    }
 
     // Captura se o painel está em modo de visualização padrão diária (sem busca detalhada por datas ativa)
     const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
@@ -3276,8 +3293,8 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
       // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
       // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
-      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== varDataHojeISO) {
-        return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje!
+      if (estaoFiltrosDeDataVazios && isoLinhaImportTratada !== "" && isoLinhaImportTratada !== varDataHojeISO) {
+        return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje com segurança!
       }
 
       // Aplica o filtro específico do card que o operador clicou de fato
