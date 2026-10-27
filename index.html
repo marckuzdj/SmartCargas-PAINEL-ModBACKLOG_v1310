@@ -3252,10 +3252,17 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     }
 
     // =========================================================================
-    // 🎯 FILTRAGEM DE DUPLO ESCOPO V10.8 (FIX DEFINITIVO: ALINHAMENTO HOJE VS BACKLOG)
+    // 🎯 FILTRAGEM DE DUPLO ESCOPO V11.0 (FIX: ESCOPO DE DATAS E SEGURANÇA RAM)
     // =========================================================================
     // Se o registro for uma carga cancelada operacionalmente, descarta no ato
     if (statusRealTraduzido === "CANCELADO") return;
+
+    // Garante a declaração segura da variável de controle de data local (Evita o ReferenceError)
+    const hojeLocal = new Date();
+    const diaL = hojeLocal.getDate().toString().padStart(2, '0');
+    const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
+    const anoL = hojeLocal.getFullYear();
+    const varDataHojeISO = `${anoL}${mesL}${diaL}`;
 
     // Captura se o painel está em modo de visualização padrão diária (sem busca detalhada por datas ativa)
     const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
@@ -3269,7 +3276,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
       // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
       // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
-      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) {
+      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== varDataHojeISO) {
         return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje!
       }
 
