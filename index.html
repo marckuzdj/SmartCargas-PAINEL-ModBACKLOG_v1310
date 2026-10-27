@@ -1102,15 +1102,24 @@ if (typeof ULTIMO_GATILHO_REGIONAL_TIMESTAMP === 'undefined') {
 }
 
 /**
- * 🎛️ MOTOR DE TRANSIÇÃO DE BARRAMENTO COM ALTA PERFORMANCE V5.1
+ * 🎛️ MOTOR DE TRANSIÇÃO DE BARRAMENTO COM ALTA PERFORMANCE V5.2
  * 🎯 FIX: Restabelece o callback estático fixo exigido pelo motor do Google Apps Script
  */
 function alternarBarramentoEAtivarFiltros() {
+  // =======================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA V13.1: DERRETE O CACHE WINDOWS FIXADO DA UF ANTERIOR
+  // =======================================================================
+  if (typeof window !== "undefined") {
+    window.CACHE_DADOS_CSV_MIGRACAO = [];
+    window.CACHE_DADOS_CSV_MIGRACAO_BRUTO = [];
+  }
+  // =======================================================================
+
   // Captura o timestamp exato deste clique para servir de Token de validação assíncrona
   const timestampDisparoAtual = Date.now();
   ULTIMO_GATILHO_REGIONAL_TIMESTAMP = timestampDisparoAtual;
 
-  // 1. Zera de forma atômica o cache de BI para a nova regional
+  // 1. Zera de forma atômica o cache de BI local para a nova regional
   CACHE_DADOS_CSV_MIGRACAO = []; 
 	
   const ufSelecionada = document.getElementById("filtroUF").value;
