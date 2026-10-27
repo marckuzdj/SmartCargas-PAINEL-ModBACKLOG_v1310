@@ -3208,7 +3208,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 VARREDURA PROFUNDA COM RE-MAPEAMENTO TOLERANTE
+  // 🚀 VARREDURA PROFUNDA COM RE-MAPEAMENTO TOLERANTE E VARIÁVEL ISOLADA DE ESCOPO
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
@@ -3225,7 +3225,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     // Captura e higieniza a string de data de importação crua da linha
     const dataCrua = (linha.dtImport || linha.DT_IMPORT || "N/A").toString().trim();
 
-    // 🚀 INJEÇÃO CIRÚRGICA: Normaliza a data da linha para garantir match exato (Independente de conter Horas/Barras)
+    // 🎯 DECLARAÇÃO ÚNICA: Evita o erro de Identifier 'already been declared'
     let isoLinhaImportTratada = "";
     if (dataCrua && dataCrua !== "N/A") {
       const stringLimpaDeDezChars = dataCrua.substring(0, 10).trim();
@@ -3243,12 +3243,11 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     }
 
     // =========================================================================
-    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM V10.5 (FIX: EXPURGO DE CANCELADOS)
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM V11.6 (USANDO A PROPRIEDADE UNIFICADA)
     // =========================================================================
     let statusRealTraduzido = "PENDENTE";
     
     if (txtStatusRaw.indexOf("CANCELADO") !== -1) {
-      // 🚨 TRAVA MESTRE: Identifica o passivo cancelado e carimba de forma isolada
       statusRealTraduzido = "CANCELADO";
     } else if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
@@ -3264,56 +3263,18 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
-    // =========================================================================
-    // 🎯 FILTRAGEM DE DUPLO ESCOPO V11.2 (FIX: NORMALIZADOR TEMPORAL UNIFICADO)
-    // =========================================================================
-    // Se o registro for uma carga cancelada operacionalmente, descarta no ato
+    // Se a linha for uma carga cancelada operacionalmente, descarta no ato
     if (statusRealTraduzido === "CANCELADO") return;
 
-    // 📅 Geração segura do carimbo numérico do dia atual no Frontend (Ex: "20261027")
-    const hojeLocal = new Date();
-    const diaL = hojeLocal.getDate().toString().padStart(2, '0');
-    const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
-    const anoL = hojeLocal.getFullYear();
-    const varDataHojeISO = `${anoL}${mesL}${diaL}`;
-
-    // 🚀 INJEÇÃO CIRÚRGICA: Normaliza a data da linha para garantir match exato (Independente de conter Horas/Barras)
-    let isoLinhaImportTratada = "";
-    if (isoLinhaImport && isoLinhaImport !== "N/A") {
-      const stringLimpaDeDezChars = isoLinhaImport.toString().trim().substring(0, 10);
-      
-      if (stringLimpaDeDezChars.indexOf("/") !== -1) {
-        // Se a string contiver barras (Formato vindo do botão Buscar: "27/10/2026")
-        const partesData = stringLimpaDeDezChars.split("/");
-        if (partesData.length === 3) {
-          isoLinhaImportTratada = partesData[2] + partesData[1].padStart(2, '0') + partesData[0].padStart(2, '0');
-        }
-      } else {
-        // Se já vier no formato numérico limpo (Formato vindo da troca de UF: "20261027")
-        isoLinhaImportTratada = stringLimpaDeDezChars;
-      }
-    }
-
-    // Captura se o painel está em modo de visualização padrão diária (sem busca detalhada por datas ativa)
-    const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
-    const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-    const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
-
     if (statusAlvo === "BACKLOG") {
-      // 🚨 CANAL BACKLOG: Só aceita registros legítimos do passivo histórico
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
-      // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
-      // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
+      // 🚨 Usa a nova variável única tratada de escopo para validar o corte diário de hoje
       if (estaoFiltrosDeDataVazios && isoLinhaImportTratada !== "" && isoLinhaImportTratada !== varDataHojeISO) {
-        return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje com segurança!
+        return; 
       }
-
-      // Aplica o filtro específico do card que o operador clicou de fato
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
-    // =========================================================================
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
