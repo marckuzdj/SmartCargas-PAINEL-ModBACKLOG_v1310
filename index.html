@@ -3179,8 +3179,19 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   console.log("-> Estado atual da variável 'CACHE_DADOS_CSV_MIGRACAO':", CACHE_DADOS_CSV_MIGRACAO);
   console.log("-> Estado atual da variável 'window.CACHE_DADOS_CSV_MIGRACAO':", window.CACHE_DADOS_CSV_MIGRACAO);
   
-  // Roteamento dinâmico
-  const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : (window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO);
+  // 🔍 Localize esta linha exata no início da função abrirDashboardKpiDetalhado e substitua por:
+  // =========================================================================
+  // 🎯 CORREÇÃO CORE V13.5: ROTEAMENTO DINÂMICO RESILIENTE POR TAMANHO DE ARRAY
+  // =========================================================================
+  // Captura qual das duas gavetas de memória RAM de fato detém as linhas preenchidas
+  const cacheAtivoDoGrid = (window.CACHE_DADOS_CSV_MIGRACAO && window.CACHE_DADOS_CSV_MIGRACAO.length > 0) 
+    ? window.CACHE_DADOS_CSV_MIGRACAO 
+    : CACHE_DADOS_CSV_MIGRACAO;
+
+  // Seleção final baseada no alvo do cartão clicado
+  const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : cacheAtivoDoGrid;
+  // =========================================================================
+
   
   console.log("-> Repositório escolhido pela Engine (fonteCacheAtiva):", fonteCacheAtiva);
   if (fonteCacheAtiva) {
