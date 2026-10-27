@@ -3229,9 +3229,15 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       }
     }
 
-    // Tradutor Dinâmico de Status em Tempo Real na RAM (Garante simetria absoluta com os cards)
+    // =========================================================================
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM V10.5 (FIX: EXPURGO DE CANCELADOS)
+    // =========================================================================
     let statusRealTraduzido = "PENDENTE";
-    if (txtStatusRaw === "BACKLOG") {
+    
+    if (txtStatusRaw.indexOf("CANCELADO") !== -1) {
+      // 🚨 TRAVA MESTRE: Identifica o passivo cancelado e carimba de forma isolada
+      statusRealTraduzido = "CANCELADO";
+    } else if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
     } else if (txtStatusRaw === "" || txtStatusRaw === "PENDENTE" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
       statusRealTraduzido = "PENDENTE";
@@ -3246,15 +3252,40 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     }
 
     // =========================================================================
-    // 🎯 REENGENHARIA CRÍTICA: REMOÇÃO DA TRAVA CORTE-ESTRITO-HOJE QUE ZERAVA A RAM
+    // 🎯 FILTRAGEM DE DUPLO ESCOPO V11.0 (FIX: ESCOPO DE DATAS E SEGURANÇA RAM)
     // =========================================================================
+    // Se o registro for uma carga cancelada operacionalmente, descarta no ato
+    if (statusRealTraduzido === "CANCELADO") return;
+
+    // Garante a declaração segura da variável de controle de data local (Evita o ReferenceError)
+    const hojeLocal = new Date();
+    const diaL = hojeLocal.getDate().toString().padStart(2, '0');
+    const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
+    const anoL = hojeLocal.getFullYear();
+    const varDataHojeISO = `${anoL}${mesL}${diaL}`;
+
+    // Captura se o painel está em modo de visualização padrão diária (sem busca detalhada por datas ativa)
+    const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
+    const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+    const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
+
     if (statusAlvo === "BACKLOG") {
+      // 🚨 CANAL BACKLOG: Só aceita registros legítimos do passivo histórico
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // Confia 100% no cache trazido pelo servidor! Se o card clicado for diferente, pula.
+      // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
+      // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
+      // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
+      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== varDataHojeISO) {
+        return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje!
+      }
+
+      // Aplica o filtro específico do card que o operador clicou de fato
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
+
+
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
