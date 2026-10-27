@@ -3229,9 +3229,15 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       }
     }
 
-    // Tradutor Dinâmico de Status em Tempo Real na RAM (Garante simetria absoluta com os cards)
+    // =========================================================================
+    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM V10.5 (FIX: EXPURGO DE CANCELADOS)
+    // =========================================================================
     let statusRealTraduzido = "PENDENTE";
-    if (txtStatusRaw === "BACKLOG") {
+    
+    if (txtStatusRaw.indexOf("CANCELADO") !== -1) {
+      // 🚨 TRAVA MESTRE: Identifica o passivo cancelado e carimba de forma isolada
+      statusRealTraduzido = "CANCELADO";
+    } else if (txtStatusRaw === "BACKLOG") {
       statusRealTraduzido = "BACKLOG";
     } else if (txtStatusRaw === "" || txtStatusRaw === "PENDENTE" || txtStatusRaw.indexOf("0 /") === 0 || txtStatusRaw.indexOf("0/") === 0) {
       statusRealTraduzido = "PENDENTE";
@@ -3245,13 +3251,14 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
-    // =========================================================================
-    // 🎯 REENGENHARIA CRÍTICA: REMOÇÃO DA TRAVA CORTE-ESTRITO-HOJE QUE ZERAVA A RAM
-    // =========================================================================
+    // 🚨 REGRA DE EXCLUSÃO ABSOLUTA: Se a linha for uma carga cancelada, 
+    // ela é sumariamente descartada do ranking de BI para não inflar os números
+    if (statusRealTraduzido === "CANCELADO") return;
+
+    // Filtro por correspondência direta de status mapeado (Mantido intacto)
     if (statusAlvo === "BACKLOG") {
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // Confia 100% no cache trazido pelo servidor! Se o card clicado for diferente, pula.
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
