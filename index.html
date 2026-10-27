@@ -3158,11 +3158,6 @@ window.processarRespostaFiltrosGlobais = function(resposta) {
 };
 
 
-/**
- * ENGINE BI V6.9: Processa os dados em cache e renderiza o ranking de Eficiência ou a Torre de Backlog
- * 🎯 ZERO LATÊNCIA: Confia 100% no filtro prévio do servidor, eliminando o alerta fantasma de busca pendente
- * 🔓 ACESSO GLOBAL FILTRADO: Disponível para todos os perfis com regras de escopo regional
- */
 function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const nivelAcessoLogado = (localStorage.getItem("user_perfil") || "").toString().trim().toUpperCase();
   const empresaVinculada = (localStorage.getItem("user_empresa") || "").toString().trim().toUpperCase();
@@ -3177,7 +3172,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const fonteCacheAtiva = (statusAlvo === "BACKLOG") ? CACHE_BACKLOG_GLOBAL_ROTEAMENTO : cacheBIUnificado;
 
   // =======================================================================
-  // 🔬 RASTREADOR DE MEMÓRIA CRÍTICO (FLUXO DE LEITURA DO MODAL OPERACIONAL)
+  // 🔬 RASTREADOR DE MEMÓRIA (FLUXO DE LEITURA DO MODAL OPERACIONAL)
   // =======================================================================
   console.log(`%c[CAIXA-PRETA] 🔍 Card clicado pelo operador: ${statusAlvo}`, "color: #8A05BE; font-weight: bold;");
   console.log("-> Repositório escolhido pela Engine (fonteCacheAtiva):", fonteCacheAtiva);
@@ -3187,20 +3182,19 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     return;
   }
 
-  console.log(`[BI ENGINE V11.6] Renderizando para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
+  console.log(`[BI ENGINE V11.8] Renderizando modal para: ${statusAlvo}. Registros ativos em RAM: ${fonteCacheAtiva.length}`);
   
   let mapaAgrupamentoTransp = {};
   let totalGeralAcumuladoFiltro = 0;
 
-  // 📅 Geração segura do carimbo numérico do dia atual no Frontend (Ex: "20261027")
-  const hojeLocal = new Date();
-  const diaL = hojeLocal.getDate().toString().padStart(2, '0');
-  const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
-  const anoL = hojeLocal.getFullYear();
-  const varDataHojeISO = `${anoL}${mesL}${diaL}`;
+  const hoje = new Date();
+  const diaHoje = hoje.getDate().toString().padStart(2, '0');
+  const mesHoje = (hoje.getMonth() + 1).toString().padStart(2, '0');
+  const anoHoje = hoje.getFullYear();
+  const dataHojeISO = `${anoHoje}${mesHoje}${diaHoje}`;
 
-  const objetoOntem = new Date(hojeLocal);
-  objetoOntem.setDate(hojeLocal.getDate() - 1);
+  const objetoOntem = new Date(hoje);
+  objetoOntem.setDate(hoje.getDate() - 1);
   const dataOntemISO = `${objetoOntem.getFullYear()}${(objetoOntem.getMonth() + 1).toString().padStart(2, '0')}${(objetoOntem.getDate()).toString().padStart(2, '0')}`;
 
   // Captura se o painel está em modo de visualização padrão diária (sem busca detalhada por datas ativa)
@@ -3208,12 +3202,12 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
   const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
 
-  // 🚀 VARREDURA PROFUNDA COM RE-MAPEAMENTO TOLERANTE E VARIÁVEL ISOLADA DE ESCOPO
+  // 🚀 VARREDURA DIRETA SEM RE-FILTRAGEM DE DATA EM FRONTE
   fonteCacheAtiva.forEach(linha => {
     const nomeTransp = (linha.transp || linha.Transp || "N/A").toString().trim().toUpperCase();
     const nomeOperador = (linha.operador || linha.Operador || "N/A").toString().trim().toUpperCase();
     
-    // Captura as chaves tolerantes do servidor
+    // Captura as chaves de forma totalmente tolerante (Suporta maiúsculas/minúsculas)
     const txtStatusRaw = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
     const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
@@ -3222,34 +3216,27 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
-    // =========================================================================
-    // 🎯 VERSÃO INTEGRADA V12.0: ENGENHARIA TEMPORAL UNIFICADA SEM DUPLICIDADE
-    // =========================================================================
-    // Captura e higieniza a string de data de importação crua da linha
+    let isoLinhaImport = "";
     const dataCrua = (linha.dtImport || linha.DT_IMPORT || "N/A").toString().trim();
-
-    // 🟢 PRIMEIRA OCORRÊNCIA (A ÚNICA QUE DEVE FICAR): Processa e limpa a data da linha
-    let isoLinhaImportTratada = "";
     if (dataCrua && dataCrua !== "N/A") {
-      const stringLimpaDeDezChars = dataCrua.substring(0, 10).trim();
-      
-      if (stringLimpaDeDezChars.indexOf("/") !== -1) {
-        // Se a string contiver barras (Formato vindo do botão Buscar ou do back-end: "27/10/2026")
-        const partesData = stringLimpaDeDezChars.split("/");
-        if (partesData.length === 3) {
-          isoLinhaImportTratada = partesData[2] + partesData[1].padStart(2, '0') + partesData[0].padStart(2, '0');
+      const textoData = dataCrua.substring(0, 10).trim();
+      if (textoData.indexOf("/") !== -1) {
+        // 🚀 INJEÇÃO DE NORMALIZAÇÃO TEMPORAL: Trata o formato vindo do botão Buscar Dados ("27/10/2026")
+        const partes = textoData.split("/");
+        if (partes.length === 3) {
+          let dL = partes[0].toString().trim().padStart(2, '0');
+          let mL = partes[1].toString().trim().padStart(2, '0');
+          let aL = partes[2].toString().trim().substring(0, 4);
+          isoLinhaImport = `${aL}${mL}${dL}`;
         }
       } else {
-        // Se já vier no formato numérico limpo (Formato vindo da troca de UF: "20261027")
-        isoLinhaImportTratada = stringLimpaDeDezChars;
+        // Mantém o formato vindo da troca rápida de UF ("20261027")
+        isoLinhaImport = textoData;
       }
     }
 
-    // =========================================================================
-    // 🎯 TRADUTOR DINÂMICO DE STATUS EM RAM (EXPURGO DE CANCELADOS)
-    // =========================================================================
+    // Tradutor Dinâmico de Status em Tempo Real na RAM (Garante simetria absoluta com os cards)
     let statusRealTraduzido = "PENDENTE";
-    
     if (txtStatusRaw.indexOf("CANCELADO") !== -1) {
       statusRealTraduzido = "CANCELADO";
     } else if (txtStatusRaw === "BACKLOG") {
@@ -3266,36 +3253,19 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       statusRealTraduzido = "PARCIAL";
     }
 
-    // Se o registro for uma carga cancelada operacionalmente, descarta no ato
+    // Expurga as cargas marcadas como canceladas em RAM para bater com o servidor
     if (statusRealTraduzido === "CANCELADO") return;
 
-    // 📅 Geração segura do carimbo numérico do dia atual no Frontend (Ex: "20261027")
-    const hojeLocal = new Date();
-    const diaL = hojeLocal.getDate().toString().padStart(2, '0');
-    const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
-    const anoL = hojeLocal.getFullYear();
-    const varDataHojeISO = `${anoL}${mesL}${diaL}`;
-
-    // 🔍 Captura se os inputs de data da Dashboard estão limpos ou preenchidos
-    const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
-    const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-    const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
-
-    // ❌ 🛑 A SEGUNDA OCORRÊNCIA QUE REPETIA 'let isoLinhaImportTratada = ...' FOI REMOVIDA DAQUI!
-    // O validador abaixo agora consome de forma direta a variável mestre processada no topo.
-
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA DE DUPLO ESCOPO (ALINHAMENTO HOJE VS BACKLOG HISTÓRICO)
+    // =========================================================================
     if (statusAlvo === "BACKLOG") {
-      // 🚨 CANAL BACKLOG: Só aceita registros legítimos do passivo histórico
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
-      // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
-      // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
-      // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
-      if (estaoFiltrosDeDataVazios && isoLinhaImportTratada !== "" && isoLinhaImportTratada !== varDataHojeISO) {
-        return; // Descarta carga retroativa do modal ativo de hoje!
+      // Se estiver na visão padrão de Hoje, barra o lixo histórico de entrar nos cards do dia
+      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) {
+        return; 
       }
-
-      // Aplica o filtro específico do card que o operador clicou de fato
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
@@ -3344,7 +3314,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
     }
   }
-  
   if (containerRanking) {
     containerRanking.innerHTML = "";
     
@@ -3415,7 +3384,8 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     modalKpi.style.setProperty("display", "flex", "important");
     modalKpi.classList.remove("hidden");
   }
-}
+} // ◄ Fechamento exato da assinatura master da função 'abrirDashboardKpiDetalhado'
+
 
 
 
