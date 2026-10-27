@@ -3339,6 +3339,9 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
   // Ordenação decrescente por volume de romaneios qualificados
   rankingTransp.sort((a, b) => b.romaneiosCount - a.romaneiosCount);
 
+  // =========================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA: TÍTULO DINÂMICO ADAPTATIVO (HOJE VS NO PERÍODO)
+  // =========================================================================
   const containerRanking = document.getElementById("corpoTabelaRankingKpi");
   const txtTituloModal = document.getElementById("txtTituloModalKpi");
   
@@ -3347,10 +3350,22 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
       txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${elPeriodoCard ? elPeriodoCard.innerText : "... até ..."})`;
     } else {
-      const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
-      txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
+      // 🚀 Verifica se os inputs de data da tela estão preenchidos de fato
+      const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
+      const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+      const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
+
+      if (estaoFiltrosDeDataVazios) {
+        // Se o operador não filtrou datas, mantém o carimbo do dia atual (Visão de Hoje)
+        const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
+        txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
+      } else {
+        // 🎯 Caso o operador tenha realizado uma busca retroativa pesada, altera cirurgicamente o sufixo
+        txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (NO PERÍODO)`;
+      }
     }
   }
+  // =========================================================================
   
   if (containerRanking) {
     containerRanking.innerHTML = "";
