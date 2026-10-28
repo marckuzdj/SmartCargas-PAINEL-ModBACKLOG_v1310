@@ -3479,96 +3479,124 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
 }
 
 
-
-
-
-/**
- * ENGINE EXPORT V4.5: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
- * 🎯 ZERO LATÊNCIA: Reconcilia o duplo canal em memória RAM para impedir downloads vazios pós-busca
- */
-function exportarCsvBacklogEspecifico(nomeTransportadora) {
-  // =========================================================================
-  // 🎯 INJEÇÃO CIRÚRGICA V14.5: TRUQUE DE TRIPLO FALLBACK COGNITIVO PARA BACKLOG
-  // =========================================================================
-  // 1. Tenta pegar a base bruta pesada (pós-Buscar Dados)
-  let cacheBacklogMestre = window.CACHE_DADOS_CSV_MIGRACAO_BRUTO || [];
-  
-  // 2. Se estiver vazia (modo troca de UF rápida), tenta as gavetas normais de BI
-  if (cacheBacklogMestre.length === 0) {
-    cacheBacklogMestre = window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || [];
-  }
-  
-  // 3. 🚀 O PULO DO GATO: Se continuar vazia, herda diretamente da esteira mestre de Backlog da UF!
-  if (cacheBacklogMestre.length === 0 && typeof CACHE_BACKLOG_GLOBAL_ROTEAMENTO !== "undefined") {
-    cacheBacklogMestre = CACHE_BACKLOG_GLOBAL_ROTEAMENTO || [];
-  }
-
-  if (!cacheBacklogMestre || cacheBacklogMestre.length === 0) {
-    alert("⚠️ Não existem dados carregados em memória para compilar o arquivo de Backlog.");
-    return;
-  }
-  // =========================================================================
-
-  console.log(`[CSV EXPORT V4.5] Compilando base de Backlog para: ${nomeTransportadora}. Registros em RAM: ${cacheBacklogMestre.length}`);
-
-  const cabecalhosCSV = ["NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", "OBS", "STATUS", "INTERCORRENCIAS", "UF", "DT_IMPORT", "DISPATCH"];
-  let linhasDoArquivo = [cabecalhosCSV.join(";")];
-
-  cacheBacklogMestre.forEach(linha => {
-    // Captura as chaves de status e transportadora com fallbacks tolerantes
-    const stCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
-    const trCarga = (linha.transp || linha.Transp || "").toString().toUpperCase();
-
-    // Aceita tanto a marcação explícita de BACKLOG quanto a lógica de pendências históricas filtradas
-    if ((stCarga === "BACKLOG" || stCarga === "PENDENTE" || stCarga === "PARCIAL") && trCarga === nomeTransportadora.toUpperCase()) {
-      
-      const dadosLinha = [
-        linha.numRomaneio || linha.NUMROMANEIO || linha.NumROM || "",
-        linha.pedidos || linha.PEDIDOS || linha.TTPedidos || "0",
-        linha.volumes || linha.VOLUMES || linha.TTVol || "0",
-        linha.operador || linha.OPERADOR || "",
-        linha.transp || linha.TRANSP || "",
-        linha.conferencia || linha.CONFERENCIA || "",
-        linha.obs || linha.OBS || "",
-        "PENDENTE", 
-        linha.intercorrencias || linha.INTERCORRENCIAS || "",
-        linha.uf || linha.UF || "",
-        linha.dtImport || linha.DT_IMPORT || "", 
-        linha.dispatch || linha.DISPATCH || ""
-      ];
-
-      // Sanitização estrita contra quebras de ponto e vírgula internos textuais
-      const linhaTratada = dadosLinha.map(v => {
-        let txt = v ? v.toString().replace(/"/g, '""').replace(/[\n\(\r\\)t]/g, ' ').trim() : "";
-        return `"${txt}"`;
-      }).join(";");
-      
-      linhasDoArquivo.push(linhaTratada);
-    }
-  });
-
-  if (linhasDoArquivo.length <= 1) {
-    alert(`⚠️ Nenhum saldo operacional qualificado como Backlog foi localizado para a transportadora ${nomeTransportadora} na massa de dados atual.`);
-    return;
-  }
-
-  const conteudoFinalTexto = linhasDoArquivo.join("\n");
-  const blobDeDados = new Blob(["\ufeff" + conteudoFinalTexto], { type: "text/csv;charset=utf-8;" });
-  
-  const linkInvisivel = document.createElement("a");
-  const urlBlob = URL.createObjectURL(blobDeDados);
-  const dataHojeArquivo = new Date().toLocaleDateString('pt-BR').replace(/\//g, "-");
-  
-  linkInvisivel.setAttribute("href", urlBlob);
-  linkInvisivel.setAttribute("download", `BACKLOG_${nomeTransportadora.replace(/\s+/g, '_')}_${dataHojeArquivo}.csv`);
-  linkInvisivel.style.visibility = "hidden";
-  
-  document.body.appendChild(linkInvisivel);
-  linkInvisivel.click();
-  document.body.removeChild(linkInvisivel);
+	/**
+	 * ENGINE EXPORT V4.6: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
+	 * 🎯 ZERO LATÊNCIA: Reconcilia o duplo canal em memória RAM e remove dados do dia atual (Foco em Aging D+1)
+	 */
+	function exportarCsvBacklogEspecifico(nomeTransportadora) {
+	  // =========================================================================
+	  // 🎯 INJEÇÃO CIRÚRGICA V14.5: TRUQUE DE TRIPLO FALLBACK COGNITIVO PARA BACKLOG
+	  // =========================================================================
+	  // 1. Tenta pegar a base bruta pesada (pós-Buscar Dados)
+	  let cacheBacklogMestre = window.CACHE_DADOS_CSV_MIGRACAO_BRUTO || [];
+	  
+	  // 2. Se estiver vazia (modo troca de UF rápida), tenta as gavetas normais de BI
+	  if (cacheBacklogMestre.length === 0) {
+	    cacheBacklogMestre = window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || [];
+	  }
+	  
+	  // 3. 🚀 O PULO DO GATO: Se continuar vazia, herda diretamente da esteira mestre de Backlog da UF!
+	  if (cacheBacklogMestre.length === 0 && typeof CACHE_BACKLOG_GLOBAL_ROTEAMENTO !== "undefined") {
+	    cacheBacklogMestre = CACHE_BACKLOG_GLOBAL_ROTEAMENTO || [];
+	  }
 	
-  console.log(`[CSV EXPORT] Base de Backlog gerada com sucesso contendo ${linhasDoArquivo.length - 1} registros.`);
-}
+	  if (!cacheBacklogMestre || cacheBacklogMestre.length === 0) {
+	    alert("⚠️ Não existem dados carregados em memória para compilar o arquivo de Backlog.");
+	    return;
+	  }
+	  // =========================================================================
+	
+	  console.log(`[CSV EXPORT V4.6] Compilando base de Backlog para: ${nomeTransportadora}. Registros em RAM: ${cacheBacklogMestre.length}`);
+	
+	  const cabecalhosCSV = ["NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", "OBS", "STATUS", "INTERCORRENCIAS", "UF", "DT_IMPORT", "DISPATCH"];
+	  let linhasDoArquivo = [cabecalhosCSV.join(";")];
+	
+	  // =========================================================================
+	  // 🎯 INJEÇÃO CIRÚRGICA V15.0: LINHA DE CORTE DO DIA ATUAL EM MEMÓRIA RAM
+	  // =========================================================================
+	  const hojeLocal = new Date();
+	  const diaL = hojeLocal.getDate().toString().padStart(2, '0');
+	  const mesL = (hojeLocal.getMonth() + 1).toString().padStart(2, '0');
+	  const anoL = hojeLocal.getFullYear();
+	  const varDataHojeISO = `${anoL}${mesL}${diaL}`;
+	
+	  cacheBacklogMestre.forEach(linha => {
+	    // Captura as chaves de status e transportadora com fallbacks tolerantes
+	    const stCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
+	    const trCarga = (linha.transp || linha.Transp || "").toString().toUpperCase();
+	
+	    // Aceita tanto a marcação explícita de BACKLOG quanto a lógica de pendências históricas filtradas
+	    if ((stCarga === "BACKLOG" || stCarga === "PENDENTE" || stCarga === "PARCIAL") && trCarga === nomeTransportadora.toUpperCase()) {
+	      
+	      // Captura e normaliza a string de data de importação de forma ultra tolerante
+	      const dataCrua = (linha.dtImport || linha.DT_IMPORT || "N/A").toString().trim();
+	      let isoLinhaImport = "";
+	
+	      if (dataCrua && dataCrua !== "N/A") {
+	        const stringLimpaDeDezChars = dataCrua.substring(0, 10).trim();
+	        if (stringLimpaDeDezChars.indexOf("/") !== -1) {
+	          const partesData = stringLimpaDeDezChars.split("/");
+	          if (partesData.length === 3) {
+	            isoLinhaImport = `${partesData[2]}${partesData[1].padStart(2, '0')}${partesData[0].padStart(2, '0')}`;
+	          }
+	        } else {
+	          isoLinhaImport = stringLimpaDeDezChars;
+	        }
+	      }
+	
+	      // 🚨 BARREIRA TEMPORAL ULTRA-ESTRITA: Se a carga foi importada hoje, ignora e expurga do arquivo de Backlog
+	      if (isoLinhaImport !== "" && isoLinhaImport === varDataHojeISO) {
+	        return;
+	      }
+	
+	      const dadosLinha = [
+	        linha.numRomaneio || linha.NUMROMANEIO || linha.NumROM || "",
+	        linha.pedidos || linha.PEDIDOS || linha.TTPedidos || "0",
+	        linha.volumes || linha.VOLUMES || linha.TTVol || "0",
+	        linha.operador || linha.OPERADOR || "",
+	        linha.transp || linha.TRANSP || "",
+	        linha.conferencia || linha.CONFERENCIA || "",
+	        linha.obs || linha.OBS || "",
+	        "PENDENTE", 
+	        linha.intercorrencias || linha.INTERCORRENCIAS || "",
+	        linha.uf || linha.UF || "",
+	        linha.dtImport || linha.DT_IMPORT || "", 
+	        linha.dispatch || linha.DISPATCH || ""
+	      ];
+	
+	      // Sanitização estrita contra quebras de ponto e vírgula internos textuais
+	      const linhaTratada = dadosLinha.map(v => {
+	        let txt = v ? v.toString().replace(/"/g, '""').replace(/[\n\(\r\\)t]/g, ' ').trim() : "";
+	        return `"${txt}"`;
+	      }).join(";");
+	      
+	      linhasDoArquivo.push(linhaTratada);
+	    }
+	  });
+	
+	  if (linhasDoArquivo.length <= 1) {
+	    alert(`⚠️ Nenhum saldo operacional retroativo qualificado como Backlog foi localizado para a transportadora ${nomeTransportadora} na massa de dados atual.`);
+	    return;
+	  }
+	
+	  const conteudoFinalTexto = linhasDoArquivo.join("\n");
+	  const blobDeDados = new Blob(["\ufeff" + conteudoFinalTexto], { type: "text/csv;charset=utf-8;" });
+	  
+	  const linkInvisivel = document.createElement("a");
+	  const urlBlob = URL.createObjectURL(blobDeDados);
+	  const dataHojeArquivo = new Date().toLocaleDateString('pt-BR').replace(/\//g, "-");
+	  
+	  linkInvisivel.setAttribute("href", urlBlob);
+	  linkInvisivel.setAttribute("download", `BACKLOG_${nomeTransportadora.replace(/\s+/g, '_')}_${dataHojeArquivo}.csv`);
+	  linkInvisivel.style.visibility = "hidden";
+	  
+	  document.body.appendChild(linkInvisivel);
+	  linkInvisivel.click();
+	  document.body.removeChild(linkInvisivel);
+		
+	  console.log(`[CSV EXPORT] Base de Backlog gerada com sucesso contendo ${linhasDoArquivo.length - 1} registros retroativos.`);
+	}
+
 
 		
     </script>
