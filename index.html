@@ -2244,18 +2244,36 @@ function fecharSubModalDetalhes() {
 }
 
 /**
-/*
  * GERADOR ATÔMICO DE RELATÓRIO UNIFICADO: EXPORTA ABAS 'ROMANEIOS', 'DETALHADO' E 'PENDENTES' NO MESMO ARQUIVO CSV
+ * 🎯 ZERO LATÊNCIA: Consome de forma resiliente tanto o canal analítico local quanto o barramento do grid global bruto
  */
 function executarExportacaoCSVNativa() {
   console.log("[CSV] Iniciando compilação unificada das abas ROMANEIOS, DETALHADO e PENDENTES...");
 
-  if (!CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO.length === 0) {
-    alert("⚠️ Não existem romaneios carregados no modal para gerar a exportação.");
+  // =========================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA V13.8: CAPTURA COMPATÍVEL DE CANAL DUPLO EM RAM
+  // =========================================================================
+  // Se existir cache mestre global (pós-busca pesada), prioriza ele. Caso contrário, lê do cache local (troca de UF).
+  const cacheRomaneiosMestre = (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO && window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length > 0)
+    ? window.CACHE_DADOS_CSV_MIGRACAO_BRUTO
+    : (window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || []);
+
+  if (!cacheRomaneiosMestre || cacheRomaneiosMestre.length === 0) {
+    alert("⚠️ Não existem romaneios carregados na memória do painel para gerar a exportação unificada.");
     return;
   }
 
-  const listaRomaneiosIds = CACHE_DADOS_CSV_MIGRACAO.map(r => r.numRomaneio).filter(Boolean).join(",");
+  // Mapeia os IDs baseado no repositório ativo reconciliado (Suporta propriedades maiúsculas ou minúsculas)
+  const listaRomaneiosIds = cacheRomaneiosMestre.map(r => {
+    return (r.numRomaneio || r.NUMROMANEIO || r.romaneio || "").toString().trim();
+  }).filter(Boolean).join(",");
+
+  if (!listaRomaneiosIds || listaRomaneiosIds === "") {
+    alert("⚠️ Os registros em memória não possuem códigos de romaneios válidos para auditoria.");
+    return;
+  }
+  // =========================================================================
+
   const ufAtiva = document.getElementById("filtroUF").value || "GERAL";
 
   const btnCsv = document.querySelector("button[onclick='executarExportacaoCSVNativa()']");
@@ -2274,10 +2292,10 @@ function executarExportacaoCSVNativa() {
     }
 
     if (resposta && resposta.success) {
-      // 🚀 ADAPTAÇÃO CIRÚRGICA: Captura os dados do lote unificado gerado pelo novo back-end
-      const listaRom = resposta.dadosRomaneios || CACHE_DADOS_CSV_MIGRACAO || [];
-      const listaDet = resposta.dados || []; // Puxa o array unificado (Contendo DETALHADO + PENDENTES)
-      let linhasCSVGeral = [];
+      // Captura o lote unificado do back-end ou herda o espelhamento da RAM
+      const listaRom = resposta.dadosRomaneios || cacheRomaneiosMestre || [];
+      const listaDet = resposta.dados || []; 
+      let linesCSVGeral = [];
       
       const formatarCelulaCSV = (valor) => {
         if (valor === undefined || valor === null) return "";
@@ -2289,55 +2307,67 @@ function executarExportacaoCSVNativa() {
       // ===================================================================
       // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS'
       // ===================================================================
-      linhasCSVGeral.push("=== SEÇÃO 1: RESUMO GERENCIAL ===");
+      linesCSVGeral.push("=== SEÇÃO 1: RESUMO GERENCIAL ===");
       
-      // 🎯 INJEÇÃO CIRÚRGICA: ADICIONADO "DISPATCH" NOS CABEÇALHOS DA SEÇÃO 1
-      linhasCSVGeral.push([
+      linesCSVGeral.push([
         "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", 
         "Conferencia", "OBS", "ENDERECO", "ASSINATURA", "STATUS", "INTERCORRENCIAS", "EVIDENCIAS", "DT_IMPORT", "DISPATCH", "UF", "ORIGEM_ESTEIRA"
       ].join(";"));
 
       listaRom.forEach(linha => {
-        // Identifica dinamicamente a origem baseado no status do romaneio mestre
-        const ehConcluido = linha.status && linha.status.toString().toUpperCase().includes('CONCLUIDO');
+        const txtStatusUpper = (linha.status || linha.STATUS || "").toString().toUpperCase();
+        const ehConcluido = txtStatusUpper.includes('CONCLUIDO') || txtStatusUpper.includes('100%');
         const origemMestre = (ehConcluido || linha.origemDados === "DETALHADO") ? "DETALHADO" : "PENDENTES";
 
-        // 🎯 INJEÇÃO CIRÚRGICA: ADICIONADO VALOR 'linha.dispatch' ALINHADO AO CABEÇALHO
-        linhasCSVGeral.push([
-          formatarCelulaCSV(linha.numRomaneio), formatarCelulaCSV(linha.pedidos), formatarCelulaCSV(linha.volumes),
-          formatarCelulaCSV(linha.operador), formatarCelulaCSV(linha.transp), formatarCelulaCSV(linha.conferencia),
-          formatarCelulaCSV(linha.obs), formatarCelulaCSV(linha.endereco), formatarCelulaCSV(linha.assinatura),
-          formatarCelulaCSV(linha.status), formatarCelulaCSV(linha.intercorrencias), formatarCelulaCSV(linha.evidencias),
-          formatarCelulaCSV(linha.dtImport || "N/A"), formatarCelulaCSV(linha.dispatch || "N/A"), formatarCelulaCSV(linha.uf || ufAtiva),
-          formatarCelulaCSV(origemMestre) // 🚀 Rastreabilidade na Seção 1
+        linesCSVGeral.push([
+          formatarCelulaCSV(linha.numRomaneio || linha.NUMROMANEIO), 
+          formatarCelulaCSV(linha.pedidos || linha.PEDIDOS || linha.TTPedidos || 0), 
+          formatarCelulaCSV(linha.volumes || linha.VOLUMES || linha.TTVol || 0),
+          formatarCelulaCSV(linha.operador || linha.OPERADOR), 
+          formatarCelulaCSV(linha.transp || linha.TRANSP), 
+          formatarCelulaCSV(linha.conferencia || linha.CONFERENCIA),
+          formatarCelulaCSV(linha.obs || linha.OBS), 
+          formatarCelulaCSV(linha.endereco || linha.ENDERECO), 
+          formatarCelulaCSV(linha.assinatura || linha.ASSINATURA),
+          formatarCelulaCSV(linha.status || linha.STATUS), 
+          formatarCelulaCSV(linha.intercorrencias || linha.INTERCORRENCIAS), 
+          formatarCelulaCSV(linha.evidencias || linha.EVIDENCIAS),
+          formatarCelulaCSV(linha.dtImport || linha.DT_IMPORT || "N/A"), 
+          formatarCelulaCSV(linha.dispatch || linha.DISPATCH || "N/A"), 
+          formatarCelulaCSV(linha.uf || linha.UF || ufAtiva),
+          formatarCelulaCSV(origemMestre)
         ].join(";"));
       });
 
-      // ESPAÇAMENTO ENTRE TABELAS NO MESMO ARQUIVO
-      linhasCSVGeral.push("");
-      linhasCSVGeral.push("");
+      linesCSVGeral.push("");
+      linesCSVGeral.push("");
       
       // ===================================================================
       // SEÇÃO B: COMPONENTES DA ESTEIRA - UNIFICAÇÃO 'DETALHADO' E 'PENDENTES'
       // ===================================================================
-      linhasCSVGeral.push("=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===");
-      linhasCSVGeral.push([
+      linesCSVGeral.push("=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===");
+      linesCSVGeral.push([
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST", 
-        "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA", "DATA_OPERADOR", "ORIGEM_DADOS" // 🚀 ADICIONADA COLUNA ORIGEM
+        "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA", "DATA_OPERADOR", "ORIGEM_DADOS"
       ].join(";"));
 
       listaDet.forEach(linha => {
-        linhasCSVGeral.push([
-          formatarCelulaCSV(linha.romaneio), formatarCelulaCSV(linha.ov), formatarCelulaCSV(linha.fornecCross),
-          formatarCelulaCSV(linha.nfCross), formatarCelulaCSV(linha.fornecLast), formatarCelulaCSV(linha.nfLast),
-          formatarCelulaCSV(linha.volumes), formatarCelulaCSV(linha.conferente), formatarCelulaCSV(linha.dataConf || "N/A"),
-          formatarCelulaCSV(linha.dataOperador || "N/A"),
-          formatarCelulaCSV(linha.tipoOrigem || "N/A") // 🚀 INJEÇÃO CIRÚRGICA: Informa se a leitura veio da DETALHADO ou PENDENTES
+        linesCSVGeral.push([
+          formatarCelulaCSV(linha.romaneio || linha.ROMANEIO), 
+          formatarCelulaCSV(linha.ov || linha.OV), 
+          formatarCelulaCSV(linha.fornecCross || linha.FORNECCROSS || linha.FORNEC_CROSS),
+          formatarCelulaCSV(linha.nfCross || linha.NFCROSS || linha.NF_CROSS), 
+          formatarCelulaCSV(linha.fornecLast || linha.FORNECLAST || linha.FORNEC_LAST), 
+          formatarCelulaCSV(linha.nfLast || linha.NFLAST || linha.NF_LAST),
+          formatarCelulaCSV(linha.volumes || linha.VOLUMES || 0), 
+          formatarCelulaCSV(linha.conferente || linha.CONFERENTE), 
+          formatarCelulaCSV(linha.dataConf || linha.DATA_CONFERENCIA || "N/A"),
+          formatarCelulaCSV(linha.dataOperador || linha.DATA_OPERADOR || "N/A"),
+          formatarCelulaCSV(linha.tipoOrigem || linha.ORIGEM_DADOS || "N/A")
         ].join(";"));
       });
 
-      // EMBUTIMENTO DE UTF-8 BOM CONTRA QUEBRA DE ACENTOS NO EXCEL
-      const conteudoCSVCompleto = linhasCSVGeral.join("\n");
+      const conteudoCSVCompleto = linesCSVGeral.join("\n");
       const blobCSV = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), conteudoCSVCompleto], {
         type: "text/csv;charset=utf-8;"
       });
@@ -2352,7 +2382,7 @@ function executarExportacaoCSVNativa() {
       document.body.appendChild(linkDownload);
       linkDownload.click();
       document.body.removeChild(linkDownload);
-      console.log(`[CSV] Relatório unificado gerado com sucesso contendo bipes pendentes e detalhados.`);
+      console.log(`[CSV] Relatório unificado gerado com sucesso contendo bipes em lote.`);
 
     } else {
       alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro de timeout."));
@@ -2360,7 +2390,6 @@ function executarExportacaoCSVNativa() {
     delete window[callbackExportUnificadoName];
   };
 
-  // Dispara a requisição em lote para o Web App da filial selecionada
   const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO + 
     "?action=exportarDetalladoEmLoteCSV" + 
     "&romaneios=" + encodeURIComponent(listaRomaneiosIds) + 
@@ -2372,7 +2401,6 @@ function executarExportacaoCSVNativa() {
   scriptExportLoteTag.onload = function() { if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag); };
   document.body.appendChild(scriptExportLoteTag);
 }
-
 
 
 
@@ -3455,35 +3483,48 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
 
 
 /**
- * ENGINE EXPORT V4.1: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
+ * ENGINE EXPORT V4.5: Compila as linhas do cache e força o download do CSV cirúrgico de Backlog
+ * 🎯 ZERO LATÊNCIA: Reconcilia o duplo canal em memória RAM para impedir downloads vazios pós-busca
  */
 function exportarCsvBacklogEspecifico(nomeTransportadora) {
-  if (!CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO.length === 0) return;
+  // =========================================================================
+  // 🎯 INJEÇÃO CIRÚRGICA V14.0: SELEÇÃO RESILIENTE DE CACHE EM RAM
+  // =========================================================================
+  // Garante a leitura da gaveta preenchida ativa em memória do Frontend
+  const cacheBacklogMestre = (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO && window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length > 0)
+    ? window.CACHE_DADOS_CSV_MIGRACAO_BRUTO
+    : (window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || []);
 
-  console.log(`[CSV EXPORT V4.1] Compilando base de Backlog para: ${nomeTransportadora}`);
+  if (!cacheBacklogMestre || cacheBacklogMestre.length === 0) {
+    alert("⚠️ Não existem dados carregados em memória para compilar o arquivo de Backlog.");
+    return;
+  }
+
+  console.log(`[CSV EXPORT V4.5] Compilando base de Backlog para: ${nomeTransportadora}. Registros em RAM: ${cacheBacklogMestre.length}`);
 
   const cabecalhosCSV = ["NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", "OBS", "STATUS", "INTERCORRENCIAS", "UF", "DT_IMPORT", "DISPATCH"];
   let linhasDoArquivo = [cabecalhosCSV.join(";")]; 
 
-  CACHE_DADOS_CSV_MIGRACAO.forEach(linha => {
-    // Captura as strings de status de forma tolerante a maiúsculas/minúsculas
+  cacheBacklogMestre.forEach(linha => {
+    // Captura as chaves de status e transportadora com fallbacks tolerantes
     const stCarga = (linha.status || linha.STATUS || "").toString().toUpperCase();
     const trCarga = (linha.transp || linha.Transp || "").toString().toUpperCase();
 
-    if (stCarga === "BACKLOG" && trCarga === nomeTransportadora.toUpperCase()) {
+    // Aceita tanto a marcação explícita de BACKLOG quanto a lógica de pendências históricas filtradas
+    if ((stCarga === "BACKLOG" || stCarga === "PENDENTE" || stCarga === "PARCIAL") && trCarga === nomeTransportadora.toUpperCase()) {
       
       const dadosLinha = [
-        linha.numRomaneio || linha.NumROM || "",
-        linha.pedidos || linha.TTPedidos || "0",
-        linha.volumes || linha.TTVol || "0",
-        linha.operador || linha.Operador || "",
-        linha.transp || linha.Transp || "",
-        linha.conferencia || linha.Conferencia || "",
+        linha.numRomaneio || linha.NUMROMANEIO || linha.NumROM || "",
+        linha.pedidos || linha.PEDIDOS || linha.TTPedidos || "0",
+        linha.volumes || linha.VOLUMES || linha.TTVol || "0",
+        linha.operador || linha.OPERADOR || "",
+        linha.transp || linha.TRANSP || "",
+        linha.conferencia || linha.CONFERENCIA || "",
         linha.obs || linha.OBS || "",
         "PENDENTE", 
         linha.intercorrencias || linha.INTERCORRENCIAS || "",
         linha.uf || linha.UF || "",
-        linha.dtImport || linha.DT_IMPORT || "", // Já chega no formato dd/MM/yyyy limpo do backend!
+        linha.dtImport || linha.DT_IMPORT || "", 
         linha.dispatch || linha.DISPATCH || ""
       ];
 
@@ -3496,6 +3537,11 @@ function exportarCsvBacklogEspecifico(nomeTransportadora) {
       linhasDoArquivo.push(linhaTratada);
     }
   });
+
+  if (linhasDoArquivo.length <= 1) {
+    alert(`⚠️ Nenhum saldo operacional qualificado como Backlog foi localizado para a transportadora ${nomeTransportadora} na massa de dados atual.`);
+    return;
+  }
 
   const conteudoFinalTexto = linhasDoArquivo.join("\n");
   const blobDeDados = new Blob(["\ufeff" + conteudoFinalTexto], { type: "text/csv;charset=utf-8;" });
@@ -3512,12 +3558,8 @@ function exportarCsvBacklogEspecifico(nomeTransportadora) {
   linkInvisivel.click();
   document.body.removeChild(linkInvisivel);
 	
-  console.log(`[CSV EXPORT] Arquivo gerado com sucesso para a transportadora ${nomeTransportadora}.`);
+  console.log(`[CSV EXPORT] Base de Backlog gerada com sucesso contendo ${linhasDoArquivo.length - 1} registros.`);
 }
-
-
-
-
 
 		
     </script>
