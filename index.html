@@ -3285,7 +3285,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     const varDataHojeISO = `${anoL}${mesL}${diaL}`;
 
     // =========================================================================
-    // 🎯 FILTRAGEM DE DUPLO ESCOPO V12.9 (FIX: CONFERÊNCIA INCLUÍDA NO ESCOPO)
+    // 🎯 FILTRAGEM DE DUPLO ESCOPO V13.0 (FIX: CONFERÊNCIA ACOPLADA À VARIÁVEL ORIGINAL)
     // =========================================================================
     // Captura o preenchimento de todas as 4 caixas de datas possíveis na tela
     const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
@@ -3303,7 +3303,8 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
       // Se o operador NÃO preencheu nenhum filtro de datas (visão de hoje padrão),
       // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
-      if (estaoFiltrosDeDataVazios && isoLinhaImportTratada !== "" && isoLinhaImportTratada !== varDataHojeISO) {
+      // 🎯 FIX: Alterado de isoLinhaImportTratada para isoLinhaImport (Variável original do seu arquivo)
+      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== dataHojeISO) {
         return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje!
       }
 
@@ -3311,6 +3312,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
+
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
