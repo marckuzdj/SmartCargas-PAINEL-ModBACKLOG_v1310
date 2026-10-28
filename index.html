@@ -25,7 +25,7 @@
             padding: 1rem;
         }
 
-        .login-card {
+        /* .login-card {
             background-color: #FFFFFF;
             width: 100%;
             max-width: 400px;
@@ -33,8 +33,34 @@
             border-radius: 16px;
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
             border: 1px solid #E5E5EA;
+        }  */
+
+        /* =========================================================================
+         * 📐 CARD DE LOGIN EXPANDIDO COM UX HÍBRIDA RESPONSIVA (APPLE STYLE)
+         * ========================================================================= */
+        .login-card {
+            background-color: #FFFFFF;
+            width: 100%;
+            max-width: 520px; /* 🚀 Imponente no Desktop (Evita quebras de texto) */
+            padding: 3rem 2.5rem; /* Espaçamento premium para telas grandes */
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+            border: 1px solid #E5E5EA;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
         }
 
+        /* 📱 TRAVA DE ULTRA-PERFORMANCE SENSÍVEL PARA CELULARES (MOBILE UX) */
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 2rem 1.25rem; /* 🚀 Reduz o respiro nas bordas no celular para dar mais espaço aos inputs */
+                border-radius: 16px; /* Bordas ligeiramente menores para telas compactas */
+                box-shadow: none; /* Remove sombras pesadas no mobile para economizar processamento e bateria */
+                border: none; /* Design edge-to-edge moderno e clean para telas pequenas */
+                background-color: transparent; /* Se integra melhor ao fundo do app no mobile */
+            }
+        }
+		
         .brand-header {
             text-align: center;
             margin-bottom: 2rem;
