@@ -2001,35 +2001,42 @@ function executarExtracaoRelatorioBase(event) {
         } else {
           window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
             // =========================================================================
-            // 🎯 RESTAURAÇÃO V19.5: MOTOR GRÁFICO ORIGINAL DE MINIATURAS E CANHOTOS
+            // 🎯 INTERCEPTADOR HÍBRIDO BLINDADO V20.5: FIM DO LINK_ASSINATURA TEXTUAL
             // =========================================================================
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
               let linkOriginalDrive = strLink;
               
-              // Se for um link bruto ou estruturado do Google Drive, converte para renderização de imagem direta
-              if (strLink.toLowerCase().includes("://google.com") || strLink.toLowerCase().includes("drive.google.com")) {
+              // 🚀 A CARTADA DE MESTRE: Se a célula contiver a string crua "Link_Assinatura",
+              // o Frontend intercepta e constrói um botão com link real de rastreio usando o Romaneio ativo da linha
+              if (strLink === "Link_Assinatura") {
+                const romaneioID = linha.numRomaneio || linha.NUMROMANEIO || "N/A";
+                
+                // Se a URL original do Drive não foi capturada pelo Regex, monta o redirecionamento dinâmico seguro
+                return `<a href="#" onclick="abrirZoomEvidenciaCompleta('${romaneioID}', event)" class="link-fallback-painel" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" title="Clique para explorar o canhoto digital desta carga">Ver Canhoto 🔗</a>`;
+              }
+              
+              // Engenharia de conversão de links do Drive (Mantida estável)
+              if (strLink.toLowerCase().includes("://google.com") || strLink.toLowerCase().includes("://google.com")) {
                 try {
                   if (strLink.includes("/file/d/")) {
-                    // Extrai o ID do arquivo isolando os parâmetros de visualização do Drive
                     const idArquivo = strLink.split("/file/d/")[1].split("/")[0].split("?")[0];
-                    // Injeta o ID no canal oficial de thumbnails de alta performance do Google
                     strLink = `https://googleusercontent.com{idArquivo}=w300`;
                   }
                 } catch (err) {
                   console.error("[DRIVE CONVERT ERROR]", err);
                 }
               }
-            
-              // 🖼️ Renderiza graficamente a miniatura na tabela caso seja uma URL legítima
+              
+              // Renderização gráfica em miniatura se for uma URL estruturada real
               if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
                 return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${linkOriginalDrive}', event)" style="max-width: 55px; max-height: 35px; cursor: pointer; border-radius: 4px; border: 1px solid #E5E5EA;" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
               }
-              
               return strLink;
             };
             // =========================================================================
+
             const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
             const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
             const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
@@ -2140,16 +2147,32 @@ function fecharModalRelatorioDados() {
   }
 }
 
+// =========================================================================
+// 🎯 INTERCEPTADOR SEGURO V21.0: BIFURCAÇÃO ZOOM DE IMAGEM VS ESTEIRA DE BIPES
+// =========================================================================
 function abrirZoomEvidenciaCompleta(srcUrl, event) {
   if (event) event.stopPropagation(); // Evita conflitos de fechamento de modais pai
+  
+  // 🚀 O PULO DO GATO: Se o valor recebido NÃO for um link real (não começar com http),
+  // significa que é o ID de um romaneio. Abre a esteira de bipes e aborta o zoom de imagem!
+  if (!srcUrl || !srcUrl.toString().toLowerCase().startsWith("http")) {
+    console.log(`[ZOOM REDIRECT] Redirecionando Romaneio ${srcUrl} para a esteira oficial.`);
+    // Dispara a rotina interna estável abrindo o detalhado da carga
+    solicitarBipesFilhosDetalahed(srcUrl, event, "DETALHADO");
+    return;
+  }
+
+  // 🖼️ COMPORTAMENTO ORIGINAL MANTER: Se for um link de imagem válido, abre o seu modal interno de zoom
   const modalZoom = document.getElementById("modalZoomImagem");
   const imgTarget = document.getElementById("imgZoomTarget");
   
   if (modalZoom && imgTarget) {
     imgTarget.src = srcUrl;
     modalZoom.style.setProperty("display", "flex", "important");
+    console.log(`[ZOOM ENGINE] Canhoto expandido com sucesso no modal interno.`);
   }
 }
+
 
 /**
  * Fecha o modal de expiração e joga o operador direto na aba de novo cadastro
