@@ -3305,12 +3305,28 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     const txtIntercRaw = (linha.intercorrencias || linha.INTERCORRENCIAS || "").toString().trim().toUpperCase();
     const volumesCarga = Number(linha.volumes || linha.TTVol || 0) || 0;
     
-    // Governança de privacidade corporativa por perfil
+    // Governança de privacidade corporativa por perfil (Mantido Intacto)
     if (nivelAcessoLogado === "TRANSPORTADOR" && nomeTransp !== empresaVinculada) return;
     if (nivelAcessoLogado === "OPERADOR" && nomeOperador !== empresaVinculada) return;
 
+    // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA V17.0: COGNIÇÃO REFINADA DO FILTRO DE TRANSPORTADORA NO MODAL
+    // =========================================================================
+    // Captura qual transportadora está selecionada no combobox da tela
+    const selectTranspRefinado = document.getElementById("filtroTransp");
+    const transpRefinadaFiltro = selectTranspRefinado ? selectTranspRefinado.value.trim().toUpperCase() : "";
+
+    // Se o operador filtrou uma transportadora específica e a linha atual pertence a OUTRA transportadora, descarta!
+    if (transpRefinadaFiltro !== "" && transpRefinadaFiltro !== "TODOS" && transpRefinadaFiltro !== "TODAS") {
+      if (nomeTransp !== transpRefinadaFiltro) {
+        return; // Pula o registro das concorrentes na RAM
+      }
+    }
+    // =========================================================================
+
     let isoLinhaImport = "";
     const dataCrua = linha.dtImport || linha.DT_IMPORT || "N/A";
+
     if (dataCrua && dataCrua !== "N/A") {
       const textoData = dataCrua.toString().trim().substring(0, 10);
       const partes = textoData.split("/");
