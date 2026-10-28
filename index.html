@@ -3284,19 +3284,26 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
     const anoL = hojeLocal.getFullYear();
     const varDataHojeISO = `${anoL}${mesL}${diaL}`;
 
-    // Captura se o painel está em modo de visualização padrão diária (sem busca detalhada por datas ativa)
+    // =========================================================================
+    // 🎯 FILTRAGEM DE DUPLO ESCOPO V12.9 (FIX: CONFERÊNCIA INCLUÍDA NO ESCOPO)
+    // =========================================================================
+    // Captura o preenchimento de todas as 4 caixas de datas possíveis na tela
     const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
-    const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-    const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
+    const dataFinalPainel   = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+    const confInicialPainel = document.getElementById("filtroConfInicial") ? document.getElementById("filtroConfInicial").value : "";
+    const confFinalPainel   = document.getElementById("filtroConfFinal") ? document.getElementById("filtroConfFinal").value : "";
+
+    // O painel só considerará o escopo diário padrão se ABSOLUTAMENTE NENHUMA caixa de data estiver ativa
+    const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel && !confInicialPainel && !confFinalPainel);
 
     if (statusAlvo === "BACKLOG") {
       // 🚨 CANAL BACKLOG: Só aceita registros legítimos do passivo histórico
       if (statusRealTraduzido !== "BACKLOG") return;
     } else {
       // 🚨 CANAL OPERACIONAL (TODOS, CONCLUIDO, PARCIAL, PENDENTE)
-      // Se o operador NÃO fez uma busca detalhada por datas (visão de hoje padrão),
+      // Se o operador NÃO preencheu nenhum filtro de datas (visão de hoje padrão),
       // impede que as cargas antigas acumuladas em RAM entrem de carona na contagem do dia
-      if (estaoFiltrosDeDataVazios && isoLinhaImport !== "" && isoLinhaImport !== varDataHojeISO) {
+      if (estaoFiltrosDeDataVazios && isoLinhaImportTratada !== "" && isoLinhaImportTratada !== varDataHojeISO) {
         return; // É carga de dias anteriores (Backlog), descarta do modal ativo de hoje!
       }
 
@@ -3304,8 +3311,6 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       if (statusAlvo !== "TODOS" && statusRealTraduzido !== statusAlvo) return;
     }
     // =========================================================================
-
-
 
     if (!mapaAgrupamentoTransp[nomeTransp]) {
       mapaAgrupamentoTransp[nomeTransp] = { lotesMapeados: 0, volumes: 0, ontemCount: 0, doisDiasCount: 0, quatroMaisDiasCount: 0 };
@@ -3350,17 +3355,20 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
       const elPeriodoCard = document.getElementById("txtPeriodoBacklog");
       txtTituloModal.innerText = `🚨 TORRE DE BACKLOG: MAIORES INFRAÇÕES OPERACIONAIS (${elPeriodoCard ? elPeriodoCard.innerText : "... até ..."})`;
     } else {
-      // 🚀 Verifica se os inputs de data da tela estão preenchidos de fato
+      // 🚀 Verifica se existe qualquer input de data preenchido na tela (Importação ou Conferência)
       const dataInicialPainel = document.getElementById("filtroDataInicial") ? document.getElementById("filtroDataInicial").value : "";
-      const dataFinalPainel = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
-      const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel);
+      const dataFinalPainel   = document.getElementById("filtroDataFinal") ? document.getElementById("filtroDataFinal").value : "";
+      const confInicialPainel = document.getElementById("filtroConfInicial") ? document.getElementById("filtroConfInicial").value : "";
+      const confFinalPainel   = document.getElementById("filtroConfFinal") ? document.getElementById("filtroConfFinal").value : "";
+      
+      const estaoFiltrosDeDataVazios = (!dataInicialPainel && !dataFinalPainel && !confInicialPainel && !confFinalPainel);
 
       if (estaoFiltrosDeDataVazios) {
         // Se o operador não filtrou datas, mantém o carimbo do dia atual (Visão de Hoje)
         const stringDataHoje = `${diaHoje}/${mesHoje}/${anoHoje}`;
         txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (Hoje: ${stringDataHoje})`;
       } else {
-        // 🎯 Caso o operador tenha realizado uma busca retroativa pesada, altera cirurgicamente o sufixo
+        // 🎯 Altera cirurgicamente o sufixo para buscas retroativas de importação ou conferência
         txtTituloModal.innerText = `🎛️ CLASSIFICAÇÃO DE TRANSPORTADORAS - STATUS: ${statusAlvoBruto.toUpperCase()} (NO PERÍODO)`;
       }
     }
