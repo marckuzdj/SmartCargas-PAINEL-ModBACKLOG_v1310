@@ -2000,45 +2000,36 @@ function executarExtracaoRelatorioBase(event) {
           hCorpo.innerHTML = `<tr><td colspan="15" style="text-align: center; color: #6E6E73; font-weight: bold; padding: 30px;">Nenhum registro correspondente aos filtros foi localizado na base.</td></tr>`;
         } else {
           window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
+            // =========================================================================
+            // 🎯 RESTAURAÇÃO V19.5: MOTOR GRÁFICO ORIGINAL DE MINIATURAS E CANHOTOS
+            // =========================================================================
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
               let linkOriginalDrive = strLink;
               
-              // 🚀 O SEGREDO OPERACIONAL: Se o back-end em lote retornar a string limpa da célula,
-              // o Frontend intercepta e constrói o link interativo usando o ID do Romaneio atual
-              // =========================================================================
-              // 🎯 CORREÇÃO V18.8: DIRECIONAMENTO SEGURO DA ASSINATURA PARA A ESTEIRA
-              // =========================================================================
-              if (strLink === "Link_Assinatura") {
-                const romaneioID = linha.numRomaneio || linha.NUMROMANEIO || "N/A";
-                const classeMestreOrigem = (linha.status && linha.status.toString().toUpperCase().includes('CONCLUIDO')) ? 'DETALHADO' : 'PENDENTES';
-                
-                // 🚀 DIRECIONAMENTO CIRÚRGICO: Dispara a esteira oficial de bipes em vez de forçar uma URL cega
-                return `<a href="#" onclick="solicitarBipesFilhosDetalahed('${romaneioID}', event, '${classeMestreOrigem}')" class="link-fallback-painel" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" title="Clique para explorar o detalhamento de leituras desta carga">Visualizar Canhoto 🔗</a>`;
-              }
-              // =========================================================================
-              
-              // Engenharia de conversão de links do Drive (Mantida estável)
-              if (strLink.toLowerCase().includes("://google.com")) {
+              // Se for um link bruto ou estruturado do Google Drive, converte para renderização de imagem direta
+              if (strLink.toLowerCase().includes("://google.com") || strLink.toLowerCase().includes("drive.google.com")) {
                 try {
-                  const partesDrive = strLink.split("/file/d/");
-                  if (partesDrive.length > 1) {
-                    const idArquivo = partesDrive[1].split("/")[0].split("?")[0];
-                    strLink = `https://google.com{idArquivo}&sz=w300`;
+                  if (strLink.includes("/file/d/")) {
+                    // Extrai o ID do arquivo isolando os parâmetros de visualização do Drive
+                    const idArquivo = strLink.split("/file/d/")[1].split("/")[0].split("?")[0];
+                    // Injeta o ID no canal oficial de thumbnails de alta performance do Google
+                    strLink = `https://googleusercontent.com{idArquivo}=w300`;
                   }
                 } catch (err) {
                   console.error("[DRIVE CONVERT ERROR]", err);
                 }
               }
-              
-              // Renderização gráfica em miniatura se for uma URL estruturada real
+            
+              // 🖼️ Renderiza graficamente a miniatura na tabela caso seja uma URL legítima
               if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
-                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" style="max-width: 55px; cursor: pointer; border-radius: 4px;" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
+                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${linkOriginalDrive}', event)" style="max-width: 55px; max-height: 35px; cursor: pointer; border-radius: 4px; border: 1px solid #E5E5EA;" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
               }
+              
               return strLink;
             };
-
+            // =========================================================================
             const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
             const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
             const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
