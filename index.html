@@ -3488,22 +3488,31 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
  */
 function exportarCsvBacklogEspecifico(nomeTransportadora) {
   // =========================================================================
-  // 🎯 INJEÇÃO CIRÚRGICA V14.0: SELEÇÃO RESILIENTE DE CACHE EM RAM
+  // 🎯 INJEÇÃO CIRÚRGICA V14.5: TRUQUE DE TRIPLO FALLBACK COGNITIVO PARA BACKLOG
   // =========================================================================
-  // Garante a leitura da gaveta preenchida ativa em memória do Frontend
-  const cacheBacklogMestre = (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO && window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length > 0)
-    ? window.CACHE_DADOS_CSV_MIGRACAO_BRUTO
-    : (window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || []);
+  // 1. Tenta pegar a base bruta pesada (pós-Buscar Dados)
+  let cacheBacklogMestre = window.CACHE_DADOS_CSV_MIGRACAO_BRUTO || [];
+  
+  // 2. Se estiver vazia (modo troca de UF rápida), tenta as gavetas normais de BI
+  if (cacheBacklogMestre.length === 0) {
+    cacheBacklogMestre = window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || [];
+  }
+  
+  // 3. 🚀 O PULO DO GATO: Se continuar vazia, herda diretamente da esteira mestre de Backlog da UF!
+  if (cacheBacklogMestre.length === 0 && typeof CACHE_BACKLOG_GLOBAL_ROTEAMENTO !== "undefined") {
+    cacheBacklogMestre = CACHE_BACKLOG_GLOBAL_ROTEAMENTO || [];
+  }
 
   if (!cacheBacklogMestre || cacheBacklogMestre.length === 0) {
     alert("⚠️ Não existem dados carregados em memória para compilar o arquivo de Backlog.");
     return;
   }
+  // =========================================================================
 
   console.log(`[CSV EXPORT V4.5] Compilando base de Backlog para: ${nomeTransportadora}. Registros em RAM: ${cacheBacklogMestre.length}`);
 
   const cabecalhosCSV = ["NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", "OBS", "STATUS", "INTERCORRENCIAS", "UF", "DT_IMPORT", "DISPATCH"];
-  let linhasDoArquivo = [cabecalhosCSV.join(";")]; 
+  let linhasDoArquivo = [cabecalhosCSV.join(";")];
 
   cacheBacklogMestre.forEach(linha => {
     // Captura as chaves de status e transportadora com fallbacks tolerantes
