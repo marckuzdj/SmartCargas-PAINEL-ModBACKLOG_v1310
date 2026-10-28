@@ -2450,17 +2450,64 @@ window[callbackKpiRefinadoName] = function(resposta) {
     if (document.getElementById("kpiParciais")) document.getElementById("kpiParciais").innerText = resposta.kpiParciais || 0;
     if (document.getElementById("kpiPendentes")) document.getElementById("kpiPendentes").innerText = resposta.kpiPendentes || 0;
     
-    // Mantém o card de Backlog atualizado de forma síncrona com o valor refinado do servidor
-    if (document.getElementById("kpiBacklog")) {
-      document.getElementById("kpiBacklog").innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : 0;
-    }
-    
-    console.log(`[KPI REFINADO] Sincronismo concluído. Cache de BI detém ${CACHE_DADOS_CSV_MIGRACAO.length} linhas filtradas.`);
     // =========================================================================
+    // 🎯 INJEÇÃO CIRÚRGICA V16.2: COGNIÇÃO DINÂMICA DO CARD DE BACKLOG NO REFINAMENTO
+    // =========================================================================
+    const selectTransp = document.getElementById("filtroTransp");
+    const transpSelecionada = selectTransp ? selectTransp.value.trim().toUpperCase() : "";
+    const elKpiBacklog = document.getElementById("kpiBacklog");
+
+    if (elKpiBacklog) {
+      // Se o combo estiver em "TODOS", "" ou se o gatilho não for de transportadora, mantém o padrão do servidor
+      if (transpSelecionada === "TODOS" || transpSelecionada === "" || transpSelecionada === "TODAS") {
+        elKpiBacklog.innerText = resposta.kpiBacklog !== undefined ? resposta.kpiBacklog : (window.ULTIMO_CALCULO_BACKLOG_GLOBAL || 0);
+      } else {
+        // Varre em altíssima velocidade a esteira imutável e calcula o passivo real da transportadora alvo
+        let contadorBacklogEspecifico = 0;
+        
+        if (typeof CACHE_BACKLOG_GLOBAL_ROTEAMENTO !== "undefined" && CACHE_BACKLOG_GLOBAL_ROTEAMENTO.length > 0) {
+          CACHE_BACKLOG_GLOBAL_ROTEAMENTO.forEach(linha => {
+            const trCarga = (linha.transp || linha.TRANSP || linha.Transp || "").toString().trim().toUpperCase();
+            const stCarga = (linha.status || linha.STATUS || "").toString().trim().toUpperCase();
+            const dataCrua = (linha.dtImport || linha.DT_IMPORT || "N/A").toString().trim();
+
+            // Normaliza a data para excluir faturamento de hoje (Alinhado à regra V15.0 do seu CSV)
+            let isoLinhaImport = "";
+            if (dataCrua && dataCrua !== "N/A") {
+              const stringLimpa = dataCrua.substring(0, 10).trim();
+              if (stringLimpa.indexOf("/") !== -1) {
+                const partesData = stringLimpa.split("/");
+                if (partesData.length === 3) {
+                  isoLinhaImport = `${partesData[2]}${partesData[1].padStart(2, '0')}${partesData[0].padStart(2, '0')}`;
+                }
+              } else {
+                isoLinhaImport = stringLimpa;
+              }
+            }
+
+            // Captura a data de hoje para o corte do aging de Backlog real
+            const hojeL = new Date();
+            const varDataHojeISO = `${hojeL.getFullYear()}${(hojeL.getMonth() + 1).toString().padStart(2, '0')}${hojeL.getDate().toString().padStart(2, '0')}`;
+
+            // Só contabiliza se pertencer à transportadora e for passivo real (anterior a hoje)
+            if (trCarga === transpSelecionada && 
+                (stCarga === "BACKLOG" || stCarga === "PENDENTE" || stCarga === "PARCIAL") && 
+                isoLinhaImport !== "" && isoLinhaImport !== varDataHojeISO) {
+              contadorBacklogEspecifico++;
+            }
+          });
+        }
+        
+        // Atualiza fisicamente o card de Backlog com o valor refinado
+        elKpiBacklog.innerText = contadorBacklogEspecifico;
+      }
+    }
+    // =========================================================================
+    
+    console.log(`[KPI REFINADO] Sincronismo concluído. Cache de BI detém ${CACHE_DADOS_CSV_MIGRACAO.length} linhas filtradas. Backlog dinâmico para "${transpSelecionada || 'TODAS'}": ${elKpiBacklog ? elKpiBacklog.innerText : 0}`);
   }
   delete window[callbackKpiRefinadoName];
 };
-
 
   // Dispara a requisição para o Web App ativo enviando os novos critérios de agregação
   const urlKpiRefinado = ENDPOINT_REGIONAL_ATIVO + 
