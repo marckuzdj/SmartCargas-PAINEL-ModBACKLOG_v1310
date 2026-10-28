@@ -2007,10 +2007,17 @@ function executarExtracaoRelatorioBase(event) {
               
               // 🚀 O SEGREDO OPERACIONAL: Se o back-end em lote retornar a string limpa da célula,
               // o Frontend intercepta e constrói o link interativo usando o ID do Romaneio atual
+              // =========================================================================
+              // 🎯 CORREÇÃO V18.8: DIRECIONAMENTO SEGURO DA ASSINATURA PARA A ESTEIRA
+              // =========================================================================
               if (strLink === "Link_Assinatura") {
                 const romaneioID = linha.numRomaneio || linha.NUMROMANEIO || "N/A";
-                return `<a href="#" onclick="abrirZoomEvidenciaCompleta('${romaneioID}', event)" class="link-fallback-painel" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" title="Clique para explorar o canhoto digital">Visualizar Canhoto 🔗</a>`;
+                const classeMestreOrigem = (linha.status && linha.status.toString().toUpperCase().includes('CONCLUIDO')) ? 'DETALHADO' : 'PENDENTES';
+                
+                // 🚀 DIRECIONAMENTO CIRÚRGICO: Dispara a esteira oficial de bipes em vez de forçar uma URL cega
+                return `<a href="#" onclick="solicitarBipesFilhosDetalahed('${romaneioID}', event, '${classeMestreOrigem}')" class="link-fallback-painel" style="color: #8A05BE; font-weight: 700; text-decoration: underline; cursor: pointer;" title="Clique para explorar o detalhamento de leituras desta carga">Visualizar Canhoto 🔗</a>`;
               }
+              // =========================================================================
               
               // Engenharia de conversão de links do Drive (Mantida estável)
               if (strLink.toLowerCase().includes("://google.com")) {
