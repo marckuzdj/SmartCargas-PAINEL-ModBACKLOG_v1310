@@ -2001,48 +2001,21 @@ function executarExtracaoRelatorioBase(event) {
         } else {
           window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
             // =========================================================================
-            // 🎯 RENDERIZADOR PREMIUM V21.0: RECONCILIAÇÃO FIEL DE LINKS DO DRIVE
+            // 🎯 RESTAURAÇÃO FIEL DA FUNCIONALIDADE ANTIGA: HIPERLINK DO DRIVE ORIGINAL
             // =========================================================================
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
-              let linkOriginalDrive = strLink;
               
-              // 🚀 A SACADA DE BI MESTRE: Se o servidor rápido trouxer a string plana "Link_Assinatura",
-              // significa que a URL real está resguardada na fórmula do Sheets. O Frontend intercepta
-              // o valor e reconstrói o hiperlink roxo com target="_blank" e o estilo clássico exato!
-              if (strLink === "Link_Assinatura") {
-                // Captura as referências de romaneio e status da linha atual para governança
-                const numRomaneioAtual = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
-                
-                // Constrói e retorna o formato literal exato que você especificou como padrão de sucesso!
-                return `<a href="https://google.com" target="_blank" style="color: #8A05BE; font-weight: bold; text-decoration: underline; font-size: 0.85rem;" title="Abrir canhoto digital em nova aba">Visualizar Link 🔗</a>`;
-              }
-              
-              // Engenharia de Conversão de Thumbnails do Drive (Mantida 100% Intacta do seu original)
-              if (strLink.toLowerCase().includes("://google.com")) {
-                try {
-                  const partesDrive = strLink.split("/file/d/");
-                  if (partesDrive.length > 1) {
-                    const idArquivo = partesDrive[1].split("/")[0].split("?")[0];
-                    strLink = `https://google.com{idArquivo}&sz=w300`;
-                  }
-                } catch (err) {
-                  console.error("[DRIVE CONVERT ERROR]", err);
-                }
-              }
-            
-              // Validador Cascata Clássico com o seu gatilho nativo 'onerror' (Mantido 100% Intacto)
-              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://") || strLink.toLowerCase().includes("://google.com")) {
-                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
+              // Se a URL enviada pelo novo servidor for um link legítimo do Drive (Começando com HTTP),
+              // monta exatamente o formato e a folha de estilo clássica que funcionava antes!
+              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
+                return `<a href="${strLink}" target="_blank" style="color: #8A05BE; font-weight: bold; text-decoration: underline; font-size: 0.85rem;" title="Abrir canhoto digital em nova aba">Visualizar Link 🔗</a>`;
               }
               
               return strLink;
             };
             // =========================================================================
-
-
-
 			const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
             const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
             const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
