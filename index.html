@@ -2001,46 +2001,46 @@ function executarExtracaoRelatorioBase(event) {
         } else {
           window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
             // =========================================================================
-            // 🎯 RECONCILIAÇÃO MASTER V20.0: ATIVAÇÃO DO LOG DE FALLBACK NATIVO DO DRIVE
+            // 🎯 ENGINE GRID V22.0: RESOLUÇÃO DE DIRETRIZES DE LINKS DO DRIVE
             // =========================================================================
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
               let linkOriginalDrive = strLink;
               
-              // 🚀 O SEGREDO DO SUCESSO: Se o servidor rápido trouxer o texto plano "Link_Assinatura",
-              // significa que a imagem real está oculta pela fórmula. Aciona imediatamente a sua 
-              // função nativa de fallback para gerar o link roxo com target="_blank" original!
+              // 🚀 O RECURSO INTELIGENTE: Se o servidor em lote trouxer o texto cru "Link_Assinatura",
+              // o Frontend monta o formato visual fiel exato que você especificou, mas utiliza o
+              // ID do Romaneio atual acoplado à esteira para evitar rotas cegas 404 no GitHub!
               if (strLink === "Link_Assinatura") {
-                if (typeof criarLinkFallbackSurgico === "function") {
-                  // Executa a sua rotina original e extrai o elemento HTML puro estruturado por ela
-                  const elementoLinkNativo = criarLinkFallbackSurgico(linkOriginalDrive);
-                  if (elementoLinkNativo && elementoLinkNativo.outerHTML) {
-                    return elementoLinkNativo.outerHTML;
-                  }
-                }
-                // Fallback de segurança visual mantendo o estilo fiel que você especificou
-                return `<a href="#" onclick="solicitarBipesFilhosDetalahed('${linha.numRomaneio}', event, 'DETALHADO')" style="color: #8A05BE; font-weight: bold; text-decoration: underline; font-size: 0.85rem;" title="Abrir canhoto digital">Visualizar Link 🔗</a>`;
+                const romaneioID = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
+                const classeMestreOrigem = (celulaStatusRaw.includes('CONCLUIDO') || celulaStatusRaw.includes('100%')) ? 'DETALHADO' : 'PENDENTES';
+                
+                // Retorna o elemento HTML com o estilo exato e target="_blank", direcionando com segurança
+                return `<a href="#" onclick="solicitarBipesFilhosDetalahed('${romaneioID}', event, '${classeMestreOrigem}')" target="_blank" style="color: #8A05BE; font-weight: bold; text-decoration: underline; font-size: 0.85rem;" title="Abrir detalhamento de bipes em nova aba">Visualizar Link 🔗</a>`;
               }
               
-              // Engenharia de Conversão Bruta do seu arquivo (Mantida 100% Intacta)
-              if (strLink.toLowerCase().includes("://google.com")) {
+              // Engenharia de conversão de links do Drive (Mantida estável)
+              if (strLink.toLowerCase().includes("://google.com") || strLink.toLowerCase().includes("://google.com")) {
                 try {
-                  const partesDrive = strLink.split("/file/d/");
-                  if (partesDrive.length > 1) {
-                    const idArquivo = partesDrive[1].split("/")[0].split("?")[0];
-                    strLink = `https://google.com{idArquivo}&sz=w300`;
+                  if (strLink.includes("/file/d/")) {
+                    const idArquivo = strLink.split("/file/d/")[1].split("/")[0].split("?")[0];
+                    strLink = `https://googleusercontent.com{idArquivo}=w300`;
                   }
                 } catch (err) {
                   console.error("[DRIVE CONVERT ERROR]", err);
                 }
               }
-            
-              // Validador Cascata Clássico com gatilho onerror original do seu arquivo
-              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://") || strLink.toLowerCase().includes("://google.com")) {
-                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
-              }
               
+              // 🖼️ SE O SERVIDOR TRAZER A URL REAL (Começando com HTTP): Dispara a sua função nativa de Fallback!
+              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
+                if (typeof criarLinkFallbackSurgico === "function") {
+                  const elLinkNativo = criarLinkFallbackSurgico(linkOriginalDrive);
+                  if (elLinkNativo && elLinkNativo.outerHTML) {
+                    return elLinkNativo.outerHTML; // Entrega o elemento gerado pelo seu código padrão [source: user prompt]
+                  }
+                }
+                return `<a href="${strLink}" target="_blank" style="color: #8A05BE; font-weight: bold; text-decoration: underline; font-size: 0.85rem;" title="Abrir canhoto digital em nova aba">Visualizar Link 🔗</a>`;
+              }
               return strLink;
             };
             // =========================================================================
