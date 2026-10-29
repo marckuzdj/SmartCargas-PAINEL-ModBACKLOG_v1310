@@ -2001,47 +2001,22 @@ function executarExtracaoRelatorioBase(event) {
         } else {
           window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.forEach(linha => {
             // =========================================================================
-            // 🎯 INJEÇÃO CIRÚRGICA V18.9: TRATAMENTO DE IMAGEM INSPIRADO NO FALLBACK NATIVO
+            // 🎯 RENDERIZADOR FORMATO PADRÃO V19.0: ALINHAMENTO VISUAL FIEL DO DRIVE LINK
             // =========================================================================
             const tratarCelulaImagem = (urlLink) => {
               if (!urlLink || urlLink.toString().trim() === "" || urlLink.toString().toUpperCase() === "N/A") return "N/A";
               let strLink = urlLink.toString().trim();
-              let linkOriginalDrive = strLink;
               
-              // 🚀 A SACADA OPERACIONAL: Se o servidor rápido trouxer o texto cru "Link_Assinatura",
-              // ele ignora o teste HTTP e aciona IMEDIATAMENTE a sua função nativa de link interativo!
-              if (strLink === "Link_Assinatura") {
-                if (typeof criarLinkFallbackSurgico === "function") {
-                  // Passa o ID do Romaneio como parâmetro seguro para manter a rastreabilidade estruturada
-                  const romID = linha.numRomaneio || linha.NUMROMANEIO || "N/A";
-                  return criarLinkFallbackSurgico(romID).outerHTML || `<span style="color:#8A05BE; font-weight:700; text-decoration:underline; cursor:pointer;" onclick="abrirZoomEvidenciaCompleta('${romID}', event)">Visualizar Link 🔗</span>`;
-                }
-                return "Link_Assinatura";
-              }
-              
-              // Engenharia de Conversão Original do seu arquivo (Mantida 100% Intacta)
-              if (strLink.toLowerCase().includes("://google.com")) {
-                try {
-                  const partesDrive = strLink.split("/file/d/");
-                  if (partesDrive.length > 1) {
-                    const idArquivo = partesDrive[1].split("/")[0].split("?")[0];
-                    strLink = `https://google.com{idArquivo}&sz=w300`;
-                  }
-                } catch (err) {
-                  console.error("[DRIVE CONVERT ERROR]", err);
-                }
-              }
-            
-              // Validador Cascata Clássico do seu arquivo (Mantido 100% Intacta)
-              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://") || strLink.toLowerCase().includes("://google.com")) {
-                return `<img src="${strLink}" class="table-thumbnail-img" onclick="abrirZoomEvidenciaCompleta('${strLink}', event)" title="Clique para expandir o canhoto digital" onerror="this.onerror=null; this.replaceWith(criarLinkFallbackSurgico('${linkOriginalDrive}'));">`;
+              // Se a URL capturada for um link real do Drive ou internet, monta o formato mestre original
+              if (strLink.toLowerCase().startsWith("http://") || strLink.toLowerCase().startsWith("https://")) {
+                return `<a href="${strLink}" target="_blank" style="color: #8A05BE; font-weight: bold; text-decoration: underline; font-size: 0.85rem;" title="Abrir canhoto digital em nova aba">Visualizar Link 🔗</a>`;
               }
               
               return strLink;
             };
             // =========================================================================
 
-            const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
+			const celulaRomaneioRaw = (linha.numRomaneio || linha.NUMROMANEIO || "N/A").toString().trim();
             const celulaStatusRaw = (linha.status || linha.STATUS || "PENDENTE").toString().trim().toUpperCase();
             const ufCargaLinha = (linha.uf || linha.UF || selectedUF || "UF").toString().trim().toUpperCase();
 
