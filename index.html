@@ -2291,9 +2291,8 @@ function fecharSubModalDetalhes() {
   }
 }
 
-
 /**
- * GERADOR ATÔMICO DE RELATÓRIO UNIFICADO COM ESCAPE DE TIMEOUT LOCAL V15.0
+ * GERADOR ATÔMICO DE RELATÓRIO UNIFICADO COM ESCAPE DE TIMEOUT LOCAL V15.2
  * 🚀 ZERO LATÊNCIA EM GRANDES VOLUMES: Se o servidor do Google travar por excesso de dados (3 meses),
  * o painel faz o download instantâneo do Resumo Gerencial direto da memória RAM da tela!
  */
@@ -2363,7 +2362,7 @@ function executarExportacaoCSVNativa() {
         formatarCelulaCSV(linha.volumes || linha.VOLUMES || linha.TTVol || 0),
         formatarCelulaCSV(linha.operador || linha.OPERADOR), 
         formatarCelulaCSV(linha.transp || linha.TRANSP), 
-        formatarCelulaCSV(linha.conferencia || linha.CONFERENCIA),
+        formatarCelulaCSV(linha.conferencia || Conf || linha.CONFERENCIA),
         formatarCelulaCSV(linha.obs || linha.OBS), 
         formatarCelulaCSV(linha.endereco || linha.ENDERECO), 
         formatarCelulaCSV(linha.assinatura || linha.ASSINATURA),
@@ -2402,14 +2401,18 @@ function executarExportacaoCSVNativa() {
     if (!exportacaoFinalizada) {
       exportacaoFinalizada = true;
       gerarDownloadResumoGerencialRAM("TIMEOUT_DO_SERVIDOR_GOOGLE_EXCESSO_DE_DADOS");
-      mostrarToastAviso("📊 Relatório Gerencial massivo baixado via cache local devido ao tempo de resposta da rede.");
+      if (typeof mostrarToastAviso === "function") {
+        mostrarToastAviso("📊 Relatório Gerencial massivo baixado via cache local devido ao tempo de resposta da rede.");
+      }
     }
-  }, 15000); // 15 segundos de tolerância máxima de pátio
-
+  }, 15000);
+  // =========================================================================
+  // ⚡ PARTE 2: CALLBACK DE RESPOSTA DA REDE E FECHAMENTO DO MOTOR TRANSACIONAL
+  // =========================================================================
   window[callbackExportUnificadoName] = function(resposta) {
-    if (exportacaoFinalizada) return; // Se o timeout já disparou o download local, ignora a resposta atrasada
+    if (exportacaoFinalizada) return; // Se o timeout de 15s já disparou o download local, ignora a rede lenta
     exportacaoFinalizada = true;
-    clearTimeout(timeoutId); // Cancela o cronômetro de segurança
+    clearTimeout(timeoutId); // Cancela o cronômetro de segurança de 15 segundos
 
     if (btnCsv) {
       btnCsv.disabled = false;
@@ -2428,7 +2431,7 @@ function executarExportacaoCSVNativa() {
         return `"${texto}"`;
       };
 
-      // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS'
+      // Seção 1: Relatório Gerencial de Cabeçalhos de Romaneios (Sincronismo mestre)
       linesCSVGeral.push("=== SEÇÃO 1: RESUMO GERENCIAL ===");
       linesCSVGeral.push([
         "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", 
@@ -2463,7 +2466,7 @@ function executarExportacaoCSVNativa() {
       linesCSVGeral.push("");
       linesCSVGeral.push("");
       
-      // SEÇÃO B: COMPONENTES DA ESTEIRA - UNIFICAÇÃO 'DETALHADO' E 'PENDENTES'
+      // Seção 2: Detalhamento de Leituras (Os bipes individuais de caixas cruzados na nuvem)
       linesCSVGeral.push("=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===");
       linesCSVGeral.push([
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST", 
@@ -2476,7 +2479,7 @@ function executarExportacaoCSVNativa() {
           formatarCelulaCSV(linha.ov || linha.OV), 
           formatarCelulaCSV(linha.fornecCross || linha.FORNECCROSS || linha.FORNEC_CROSS),
           formatarCelulaCSV(linha.nfCross || linha.NFCROSS || linha.NF_CROSS), 
-          formatarCelulaCSV(linha.fornecLast || presidential || linha.FORNECLAST || linha.FORNEC_LAST), 
+          formatarCelulaCSV(linha.fornecLast || linha.FORNECLAST || linha.FORNEC_LAST), 
           formatarCelulaCSV(linha.nfLast || linha.NFLAST || linha.NF_LAST),
           formatarCelulaCSV(linha.volumes || linha.VOLUMES || 0), 
           formatarCelulaCSV(linha.conferente || linha.CONFERENTE), 
@@ -2493,29 +2496,34 @@ function executarExportacaoCSVNativa() {
 
       const linkDownload = document.createElement("a");
       const dataCarimbo = new Date().toISOString().split('T')[0];
-        linkDownload.href = URL.createObjectURL(blobCSV);
-        linkDownload.setAttribute("download", `RELATORIO_UNIFICADO_PDC_${ufAtiva}_${dataCarimbo}.csv`);
-		linkDownload.style.display = "none";
-		document.body.appendChild(linkDownload);
-		linkDownload.click();
-		document.body.removeChild(linkDownload);
-		console.log([CSV] Relatório unificado em lote gerado pela rede.);
-		} else {
-		// Fallback em caso de erro imediato retornado
-		gerarDownloadResumoGerencialRAM("FALLBACK_POR_RETORNO_DE_ERRO_DE_REDE");
-		}
-		delete window[callbackExportUnificadoName];
-		};
-		const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO +
-		"?action=exportarDetalladoEmLoteCSV" +
-		"&romaneios=" + encodeURIComponent(listaRomaneiosIds) +
-		"&callback=" + callbackExportUnificadoName;
-		const scriptExportLoteTag = document.createElement("script");
-		scriptExportLoteTag.src = urlCompletaExportLote;
-		scriptExportLoteTag.async = true;
-		scriptExportLoteTag.onload = function() { if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag); };
-		document.body.appendChild(scriptExportLoteTag);
+      linkDownload.href = URL.createObjectURL(blobCSV);
+      linkDownload.setAttribute("download", `RELATORIO_UNIFICADO_PDC_${ufAtiva}_${dataCarimbo}.csv`);
+      linkDownload.style.display = "none";
+      document.body.appendChild(linkDownload);
+      linkDownload.click();
+      document.body.removeChild(linkDownload);
+      console.log(`[CSV] Relatório completo em lote compilado com sucesso pela rede.`);
+    } else {
+      // Caso a rede retorne um erro explícito imediato, aciona o Autosave de RAM local de segurança
+      gerarDownloadResumoGerencialRAM("FALLBACK_POR_RETORNO_DE_ERRO_DE_REDE");
+    }
+    delete window[callbackExportUnificadoName];
+  };
+
+  // Dispara a requisição assíncrona baseada nas regras de UFs da Torre de Controle
+  const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO + 
+    "?action=exportarDetalladoEmLoteCSV" + 
+    "&romaneios=" + encodeURIComponent(listaRomaneiosIds) + 
+    "&callback=" + callbackExportUnificadoName;
+
+  const scriptExportLoteTag = document.createElement("script");
+  scriptExportLoteTag.src = urlCompletaExportLote;
+  scriptExportLoteTag.async = true;
+  scriptExportLoteTag.onload = function() { if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag); };
+  document.body.appendChild(scriptExportLoteTag);
 }
+
+
 
 
 
