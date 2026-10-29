@@ -2299,7 +2299,7 @@ function executarExportacaoCSVNativa() {
   console.log("[CSV] Iniciando compilação unificada das abas ROMANEIOS, DETALHADO e PENDENTES...");
 
   // =========================================================================
-  // 🎯 INJEÇÃO CIRÚRGICA V13.8: CAPTURA COMPATÍVEL DE CANAL DUPLO EM RAM
+  // 🎯 INJEÇÃO CIRÚRGICA V14.8: CAPTURA COMPATÍVEL DE CANAL DUPLO EM RAM
   // =========================================================================
   // Se existir cache mestre global (pós-busca pesada), prioriza ele. Caso contrário, lê do cache local (troca de UF).
   const cacheRomaneiosMestre = (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO && window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length > 0)
@@ -2449,6 +2449,7 @@ function executarExportacaoCSVNativa() {
   scriptExportLoteTag.onload = function() { if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag); };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
