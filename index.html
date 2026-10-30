@@ -2292,7 +2292,7 @@ function fecharSubModalDetalhes() {
 }
 
 // =======================================================================
-// 🚀 FRONTEND: GERADOR ATÔMICO DE RELATÓRIO UNIFICADO (MÁXIMA VELOCIDADE)
+// 🚀 FRONTEND ULTRA-COMPACTO V2 (MATRIZ INDEXADA - MÁXIMA VELOCIDADE)
 // =======================================================================
 function executarExportacaoCSVNativa() {
   console.log("[CSV] Iniciando compilação unificada das abas ROMANEIOS, DETALHADO e PENDENTES...");
@@ -2314,11 +2314,9 @@ function executarExportacaoCSVNativa() {
   // 3. Mapeia os IDs baseado no repositório ativo com varredura tolerante a chaves ocultas
   const idsExtraidos = cacheRomaneiosMestre.map(r => {
     if (!r) return null;
-    // Tenta ler propriedades explícitas estruturadas
     const valorDireto = r.numRomaneio || r.NUMROMANEIO || r.romaneio || r.numRom || r.numROM || r.NumROM;
     if (valorDireto) return valorDireto;
 
-    // Se o ID for a própria chave de um mapa, ou estiver em outra propriedade contendo 'rom'
     const chavesObjeto = Object.keys(r);
     for (let k of chavesObjeto) {
       if (k.toLowerCase().includes("rom") && r[k]) return r[k];
@@ -2326,7 +2324,7 @@ function executarExportacaoCSVNativa() {
     return null;
   }).filter(Boolean);
 
-  // Remove pontos flutuantes decimais extras que o Sheets gera automaticamente (.0)
+  // Remove pontos flutuantes decimais extras (.0)
   const listaRomaneiosIds = idsExtraidos
     .map(id => id.toString().replace(/\.0$/, "").trim().toUpperCase())
     .filter(id => id !== "")
@@ -2335,7 +2333,6 @@ function executarExportacaoCSVNativa() {
   console.log("[DEBUG CSV] IDs de Romaneios extraídos do cache para auditoria:", listaRomaneiosIds);
 
   if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
-    console.log("[DEBUG CSV] Estrutura interna do objeto de amostra:", cacheRomaneiosMestre[0]);
     alert("⚠️ Os registros em memória não possuem códigos de romaneios válidos para auditoria.");
     return;
   }
@@ -2356,9 +2353,9 @@ function executarExportacaoCSVNativa() {
     }
 
     if (resposta && resposta.success) {
-      // Captura o lote unificado do back-end ou herda o espelhamento da RAM
       const listaRom = resposta.dadosRomaneios || [];
-      const listaDet = resposta.dadosDetalhado || resposta.dados || []; 
+      // 🚀 CAPTURA DA MATRIZ COMPACTA: Coleta o array de arrays puro enviado pelo novo backend
+      const listaDetMatriz = resposta.dadosMatriz || []; 
       
       // EXPRESSÕES REGULARES COMPILADAS FORA DO LOOP (Alivia a CPU do navegador)
       const regexPontoVirgula = /;/g;
@@ -2372,7 +2369,7 @@ function executarExportacaoCSVNativa() {
       };
 
       // ===================================================================
-      // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS' (Mapeamento em Bloco)
+      // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS'
       // ===================================================================
       const cabecalhoSecao1 = "=== SEÇÃO 1: RESUMO GERENCIAL ===\n" + [
         "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", 
@@ -2380,7 +2377,6 @@ function executarExportacaoCSVNativa() {
         "INTERCORRENCIAS", "EVIDENCIAS", "DT_IMPORT", "DISPATCH", "UF", "ORIGEM_ESTEIRA"
       ].join(";");
 
-      // Inteligência Híbrida: se o back falhar no cruzamento por chaves, reconstrói usando os IDs limpos locais
       const dadosParaSecao1 = listaRom.length > 0 ? listaRom : idsExtraidos.map((id, index) => {
         const itemLocal = cacheRomaneiosMestre[index] || {};
         return {
@@ -2428,33 +2424,34 @@ function executarExportacaoCSVNativa() {
       }).join("\n");
 
       // ===================================================================
-      // SEÇÃO B: COMPONENTES DA ESTEIRA - UNIFICAÇÃO 'DETALHADO' E 'PENDENTES'
+      // SEÇÃO B: COMPONENTES DA ESTEIRA - LEITURA DA MATRIZ COMPACTA V2
       // ===================================================================
       const cabecalhoSecao2 = "=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===\n" + [
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST", 
         "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA", "DATA_OPERADOR", "ORIGEM_DADOS"
       ].join(";");
 
-      const linhasSecao2 = listaDet.map(linha => {
+      // 🚀 PROCESSAMENTO DA MATRIZ PURA POR ÍNDICE (A operação mais rápida no JavaScript)
+      const linhasSecao2 = listaDetMatriz.map(linhaArray => {
         return [
-          formatarCelulaCSV(linha.romaneio || linha.ROMANEIO), 
-          formatarCelulaCSV(linha.ov || linha.OV), 
-          formatarCelulaCSV(linha.fornecCross || linha.FORNECCROSS || linha.FORNEC_CROSS),
-          formatarCelulaCSV(linha.nfCross || linha.NFCROSS || linha.NF_CROSS), 
-          formatarCelulaCSV(linha.fornecLast || linha.FORNECLAST || linha.FORNEC_LAST), 
-          formatarCelulaCSV(linha.nfLast || linha.NFLAST || linha.NF_LAST),
-          formatarCelulaCSV(linha.volumes || linha.VOLUMES || 0), 
-          formatarCelulaCSV(linha.conferente || linha.CONFERENTE), 
-          formatarCelulaCSV(linha.dataConf || linha.DATA_CONFERENCIA || "N/A"),
-          formatarCelulaCSV(linha.dataOperador || line.DATA_OPERADOR || "N/A"),
-          formatarCelulaCSV(linha.tipoOrigem || linha.ORIGEM_DADOS || "N/A")
+          formatarCelulaCSV(linhaArray[0]),  // romaneio
+          formatarCelulaCSV(linhaArray[1]),  // ov
+          formatarCelulaCSV(linhaArray[2]),  // fornecCross
+          formatarCelulaCSV(linhaArray[3]),  // nfCross
+          formatarCelulaCSV(linhaArray[4]),  // fornecLast
+          formatarCelulaCSV(linhaArray[5]),  // nfLast
+          formatarCelulaCSV(linhaArray[6]),  // volumes
+          formatarCelulaCSV(linhaArray[7]),  // conferente
+          formatarCelulaCSV(linhaArray[8]),  // dataConf
+          formatarCelulaCSV(linhaArray[9]),  // dataOperador
+          formatarCelulaCSV(linhaArray[10])  // tipoOrigem
         ].join(";");
       }).join("\n");
 
-      // Junção em Bloco Único de String (Sem empilhamento linear custoso)
+      // Concatenação Matricial Direta em Bloco de Memória
       const conteudoCSVCompleto = cabecalhoSecao1 + "\n" + linhasSecao1 + "\n\n\n" + cabecalhoSecao2 + "\n" + linhasSecao2;
 
-      // Proteção UTF-8 BOM contra quebra de acentuação latina no Microsoft Excel
+      // Proteção UTF-8 BOM contra quebra de acentos no Excel
       const blobCSV = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), conteudoCSVCompleto], {
         type: "text/csv;charset=utf-8;"
       });
@@ -2464,12 +2461,12 @@ function executarExportacaoCSVNativa() {
 
       linkDownload.href = URL.createObjectURL(blobCSV);
       linkDownload.setAttribute("download", `RELATORIO_UNIFICADO_PDC_${ufAtiva}_${dataCarimbo}.csv`);
-      linkDownload.style.display = "none";
+      linkDownload.style.style.display = "none";
       
       document.body.appendChild(linkDownload);
       linkDownload.click();
       document.body.removeChild(linkDownload);
-      console.log(`[CSV] Relatório unificado gerado com sucesso contendo bipes em lote.`);
+      console.log(`[CSV] Relatório unificado em Matriz Compacta gerado com sucesso.`);
 
     } else {
       alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro de timeout."));
@@ -2490,6 +2487,7 @@ function executarExportacaoCSVNativa() {
   };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
