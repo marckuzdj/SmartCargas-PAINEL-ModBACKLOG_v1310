@@ -2322,14 +2322,15 @@ function executarExportacaoCSVNativa() {
     }
 
     if (resposta && resposta.success) {
+      // 🚀 CAPTURA CIRÚRGICA: Mapeamento corrigido para aceitar todas as variações de retorno do backend
       const listaRom = resposta.dadosRomaneios || CACHE_DADOS_CSV_MIGRACAO || [];
-      const listaDet = resposta.dados || []; 
+      const listaDet = resposta.dadosDetalhado || resposta.dados || []; 
 
-      // EXPRESSÃO REGULAR COMPILADA FORA DO LOOP (Evita reprocessamento na CPU)
+      // EXPRESSÕES REGULARES COMPILADAS (Evita sobrecarga e processamento linear na CPU)
       const regexPontoVirgula = /;/g;
       const regexAspas = /"/g;
 
-      // Função inline ultra-rápida de tratamento de célula
+      // Tratamento rápido inline para strings do arquivo CSV
       const formatarCelulaCSV = (valor) => {
         if (valor === undefined || valor === null) return '""';
         let texto = valor.toString().trim();
@@ -2338,7 +2339,7 @@ function executarExportacaoCSVNativa() {
       };
 
       // --- SEÇÃO 1: RESUMO GERENCIAL (Mapeamento Matricial Nativo) ---
-      const cabecalhoSeacao1 = "=== SEÇÃO 1: RESUMO GERENCIAL ===\n" + [
+      const cabecalhoSecao1 = "=== SEÇÃO 1: RESUMO GERENCIAL ===\n" + [
         "NumROM", "TTPedidos", "TTVol", "Operador", "Transp",
         "Conferencia", "OBS", "ENDERECO", "ASSINATURA", "STATUS",
         "INTERCORRENCIAS", "EVIDENCIAS", "DT_IMPORT", "DISPATCH", "UF",
@@ -2370,7 +2371,7 @@ function executarExportacaoCSVNativa() {
       }).join("\n");
 
       // --- SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (Processamento Paralelo em RAM) ---
-      const cabecalhoSeacao2 = "=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===\n" + [
+      const cabecalhoSecao2 = "=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===\n" + [
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST",
         "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA",
         "DATA_OPERADOR", "ORIGEM_DADOS"
@@ -2392,10 +2393,10 @@ function executarExportacaoCSVNativa() {
         ].join(";");
       }).join("\n");
 
-      // CONCATENAÇÃO EM BLOCO MATRICIAL (Velocidade Máxima de junção de Strings)
-      const conteudoCSVCompleto = cabecalhoSeacao1 + "\n" + linhasSecao1 + "\n\n\n" + cabecalhoSeacao2 + "\n" + linhasSecao2;
+      // CONCATENAÇÃO MATRICIAL EM BLOCO DE MEMÓRIA (Processamento instantâneo)
+      const conteudoCSVCompleto = cabecalhoSecao1 + "\n" + linhasSecao1 + "\n\n\n" + cabecalhoSecao2 + "\n" + linhasSecao2;
 
-      // Gerador de Download nativo em Blob
+      // Embutimento de UTF-8 BOM contra quebra de caracteres latinos/acentos no Excel
       const blobCSV = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), conteudoCSVCompleto], {
         type: "text/csv;charset=utf-8;"
       });
@@ -2414,10 +2415,12 @@ function executarExportacaoCSVNativa() {
       alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro de timeout."));
     }
 
-    delete window[callbackExportUnificadoName];
+    if (window[callbackExportUnificadoName]) {
+      delete window[callbackExportUnificadoName];
+    }
   };
 
-  // Disparo assíncrono otimizado
+  // Disparo assíncrono via Tag Script otimizada
   const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO +
     "?action=exportarDetalladoEmLoteCSV" +
     "&romaneios=" + encodeURIComponent(listaRomaneiosIds) +
@@ -2427,10 +2430,13 @@ function executarExportacaoCSVNativa() {
   scriptExportLoteTag.src = urlCompletaExportLote;
   scriptExportLoteTag.async = true;
   scriptExportLoteTag.onload = function() {
-    if (scriptExportLoteTag.parentNode) scriptExportLoteTag.parentNode.removeChild(scriptExportLoteTag);
+    if (scriptExportLoteTag.parentNode) {
+      scriptExportLoteTag.parentNode.removeChild(scriptExportLoteTag);
+    }
   };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
