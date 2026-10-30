@@ -2302,29 +2302,24 @@ function executarExportacaoCSVNativa() {
     return;
   }
 
-  // Localize e substitua o início da geração da lista de IDs por esta versão protegida:
-
-// Tenta capturar numRomaneio ou romaneio de dentro do objeto do cache
-const listaRomaneiosIds = CACHE_DADOS_CSV_MIGRACAO
-  .map(r => r.numRomaneio || r.romaneio || r.id)
-  .filter(Boolean)
-  .join(",");
-
-console.log("[DEBUG CSV] IDs de Romaneios enviados para o backend:", listaRomaneiosIds);
-
-if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
-  alert("⚠️ Atenção: Os romaneios carregados não possuem um ID/Número válido para consulta.");
-  if (btnCsv) {
-    btnCsv.disabled = false;
-    btnCsv.innerHTML = originalText;
-  }
-  return;
-}
-
-  const ufAtiva = document.getElementById("filtroUF").value || "GERAL";
-
+  // 1. Inicializa o botão de forma segura para evitar erros de referência
   const btnCsv = document.querySelector("button[onclick='executarExportacaoCSVNativa()']");
   const originalText = btnCsv ? btnCsv.innerHTML : "Exportar CSV";
+
+  // 2. Extração segura mapeando chaves em comum (numRomaneio, numRom, numROM ou romaneio)
+  const listaRomaneiosIds = CACHE_DADOS_CSV_MIGRACAO
+    .map(r => r.numRomaneio || r.numRom || r.numROM || r.romaneio || r.NumROM)
+    .filter(Boolean)
+    .join(",");
+
+  console.log("[DEBUG CSV] IDs de Romaneios extraídos do cache:", listaRomaneiosIds);
+
+  if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
+    // Fallback: se os objetos não tiverem propriedades com esses nomes, mostra a estrutura para ajuste
+    console.log("[DEBUG CSV] Estrutura do primeiro objeto do cache:", CACHE_DADOS_CSV_MIGRACAO[0]);
+    alert("⚠️ Erro: A chave de identificação do romaneio não foi encontrada nos dados do cache.");
+    return;
+  }
 
   if (btnCsv) {
     btnCsv.disabled = true;
@@ -2340,15 +2335,12 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
     }
 
     if (resposta && resposta.success) {
-      // 🚀 CAPTURA CIRÚRGICA: Mapeamento corrigido para aceitar todas as variações de retorno do backend
       const listaRom = resposta.dadosRomaneios || CACHE_DADOS_CSV_MIGRACAO || [];
       const listaDet = resposta.dadosDetalhado || resposta.dados || []; 
 
-      // EXPRESSÕES REGULARES COMPILADAS (Evita sobrecarga e processamento linear na CPU)
       const regexPontoVirgula = /;/g;
       const regexAspas = /"/g;
 
-      // Tratamento rápido inline para strings do arquivo CSV
       const formatarCelulaCSV = (valor) => {
         if (valor === undefined || valor === null) return '""';
         let texto = valor.toString().trim();
@@ -2356,7 +2348,7 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
         return `"${texto.replace(regexPontoVirgula, ",").replace(regexAspas, '""')}"`;
       };
 
-      // --- SEÇÃO 1: RESUMO GERENCIAL (Mapeamento Matricial Nativo) ---
+      // --- SEÇÃO 1: RESUMO GERENCIAL ---
       const cabecalhoSecao1 = "=== SEÇÃO 1: RESUMO GERENCIAL ===\n" + [
         "NumROM", "TTPedidos", "TTVol", "Operador", "Transp",
         "Conferencia", "OBS", "ENDERECO", "ASSINATURA", "STATUS",
@@ -2369,7 +2361,7 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
         const origemMestre = (ehConcluido || linha.origemDados === "DETALHADO") ? "DETALHADO" : "PENDENTES";
 
         return [
-          formatarCelulaCSV(linha.numRomaneio),
+          formatarCelulaCSV(linha.numRomaneio || linha.numRom || linha.numROM),
           formatarCelulaCSV(linha.pedidos),
           formatarCelulaCSV(linha.volumes),
           formatarCelulaCSV(linha.operador),
@@ -2388,7 +2380,7 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
         ].join(";");
       }).join("\n");
 
-      // --- SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (Processamento Paralelo em RAM) ---
+      // --- SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA ---
       const cabecalhoSecao2 = "=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===\n" + [
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST",
         "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA",
@@ -2397,7 +2389,7 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
 
       const linhasSecao2 = listaDet.map(linha => {
         return [
-          formatarCelulaCSV(linha.romaneio),
+          formatarCelulaCSV(linha.romaneio || linha.ROMANEIO),
           formatarCelulaCSV(linha.ov),
           formatarCelulaCSV(linha.fornecCross),
           formatarCelulaCSV(linha.nfCross),
@@ -2411,10 +2403,8 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
         ].join(";");
       }).join("\n");
 
-      // CONCATENAÇÃO MATRICIAL EM BLOCO DE MEMÓRIA (Processamento instantâneo)
       const conteudoCSVCompleto = cabecalhoSecao1 + "\n" + linhasSecao1 + "\n\n\n" + cabecalhoSecao2 + "\n" + linhasSecao2;
 
-      // Embutimento de UTF-8 BOM contra quebra de caracteres latinos/acentos no Excel
       const blobCSV = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), conteudoCSVCompleto], {
         type: "text/csv;charset=utf-8;"
       });
@@ -2438,7 +2428,6 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
     }
   };
 
-  // Disparo assíncrono via Tag Script otimizada
   const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO +
     "?action=exportarDetalladoEmLoteCSV" +
     "&romaneios=" + encodeURIComponent(listaRomaneiosIds) +
@@ -2454,6 +2443,7 @@ if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
   };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
