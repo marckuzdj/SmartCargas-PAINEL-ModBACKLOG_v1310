@@ -2292,9 +2292,9 @@ function fecharSubModalDetalhes() {
 }
 
 /**
- * GERADOR ATÔMICO DE RELATÓRIO UNIFICADO COM ESCAPE DE TIMEOUT LOCAL V15.2
- * 🚀 ZERO LATÊNCIA EM GRANDES VOLUMES: Se o servidor do Google travar por excesso de dados (3 meses),
- * o painel faz o download instantâneo do Resumo Gerencial direto da memória RAM da tela!
+ * GERADOR ATÔMICO DE RELATÓRIO UNIFICADO COM ESCAPE DE TIMEOUT LOCAL V16.0
+ * 🚀 PERFORMANCE MESTRE: Integração total com o novo servidor em lote único.
+ * Tolerância estendida para 90 segundos para garantir o download das Seções 1 e 2 juntas!
  */
 function executarExportacaoCSVNativa() {
   console.log("[CSV] Iniciando compilação unificada com salvamento híbrido por RAM...");
@@ -2331,7 +2331,7 @@ function executarExportacaoCSVNativa() {
   let exportacaoFinalizada = false;
 
   // =========================================================================
-  // ⚡ ENGINE DE COMPILAÇÃO DA SEÇÃO 1 (RESUMO GERENCIAL DIRETO DA MEMÓRIA RAM)
+  // ⚡ ENGINE DE COMPILAÇÃO DA SEÇÃO 1 (AUTOSAVE DE SEGURANÇA LOCAL VIA RAM)
   // =========================================================================
   const gerarDownloadResumoGerencialRAM = (motivoOrigem) => {
     console.warn(`[CSV RAM ENGINE] Ativando download local instantâneo por: ${motivoOrigem}`);
@@ -2362,9 +2362,9 @@ function executarExportacaoCSVNativa() {
         formatarCelulaCSV(linha.volumes || linha.VOLUMES || linha.TTVol || 0),
         formatarCelulaCSV(linha.operador || linha.OPERADOR), 
         formatarCelulaCSV(linha.transp || linha.TRANSP), 
-        formatarCelulaCSV(linha.conferencia || Conf || linha.CONFERENCIA),
+        formatarCelulaCSV(linha.conferencia || linha.CONFERENCIA),
         formatarCelulaCSV(linha.obs || linha.OBS), 
-        formatarCelulaCSV(linha.endereco || linha.ENDERECO), 
+        formatarCelulaCSV(linha.endereco || inline || linha.ENDERECO), 
         formatarCelulaCSV(linha.assinatura || linha.ASSINATURA),
         formatarCelulaCSV(linha.status || linha.STATUS), 
         formatarCelulaCSV(linha.intercorrencias || linha.INTERCORRENCIAS), 
@@ -2396,7 +2396,7 @@ function executarExportacaoCSVNativa() {
     }
   };
 
-  // ⏱️ TIMEOUT DE ESCAPE (15 Segundos): Se o servidor travar ou demorar, libera o CSV gerencial da RAM na hora!
+  // ⏱️ TIMEOUT DE ESCAPE RECALIBRADO (90 Segundos de tolerância máxima para 3 meses)
   const timeoutId = setTimeout(() => {
     if (!exportacaoFinalizada) {
       exportacaoFinalizada = true;
@@ -2405,14 +2405,15 @@ function executarExportacaoCSVNativa() {
         mostrarToastAviso("📊 Relatório Gerencial massivo baixado via cache local devido ao tempo de resposta da rede.");
       }
     }
-  }, 15000);
+  }, 90000); // 🚀 90 segundos para dar tempo ao servidor novo!
+
   // =========================================================================
-  // ⚡ PARTE 2: CALLBACK DE RESPOSTA DA REDE E FECHAMENTO DO MOTOR TRANSACIONAL
+  // ⚡ PARTE 2: PROCESSAMENTO DO POOL DE REDE E MONTAGEM DO CSV COMPILADO
   // =========================================================================
   window[callbackExportUnificadoName] = function(resposta) {
-    if (exportacaoFinalizada) return; // Se o timeout de 15s já disparou o download local, ignora a rede lenta
+    if (exportacaoFinalizada) return; // Se o timeout de 90s já disparou o download local, aborta a rede atrasada
     exportacaoFinalizada = true;
-    clearTimeout(timeoutId); // Cancela o cronômetro de segurança de 15 segundos
+    clearTimeout(timeoutId); // Cancela o cronômetro de segurança de 90 segundos
 
     if (btnCsv) {
       btnCsv.disabled = false;
@@ -2431,7 +2432,9 @@ function executarExportacaoCSVNativa() {
         return `"${texto}"`;
       };
 
-      // Seção 1: Relatório Gerencial de Cabeçalhos de Romaneios (Sincronismo mestre)
+      // ===================================================================
+      // SEÇÃO 1: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS' (POVOAMENTO COMPLETO)
+      // ===================================================================
       linesCSVGeral.push("=== SEÇÃO 1: RESUMO GERENCIAL ===");
       linesCSVGeral.push([
         "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", 
@@ -2452,10 +2455,10 @@ function executarExportacaoCSVNativa() {
           formatarCelulaCSV(linha.conferencia || linha.CONFERENCIA),
           formatarCelulaCSV(linha.obs || linha.OBS), 
           formatarCelulaCSV(linha.endereco || linha.ENDERECO), 
-          formatarCelulaCSV(linha.assinatura || linha.ASSINATURA),
+          formatarCelulaCSV(linha.assinatura || linha.ASSINATURA), // 🚀 Agora carrega a URL real do Drive tratada
           formatarCelulaCSV(linha.status || linha.STATUS), 
           formatarCelulaCSV(linha.intercorrencias || linha.INTERCORRENCIAS), 
-          formatarCelulaCSV(linha.evidencias || linha.EVIDENCIAS),
+          formatarCelulaCSV(linha.evidencias || linha.EVIDENCIAS),     // 🚀 Agora carrega a URL real do Drive tratada
           formatarCelulaCSV(linha.dtImport || linha.DT_IMPORT || "N/A"), 
           formatarCelulaCSV(linha.dispatch || linha.DISPATCH || "N/A"), 
           formatarCelulaCSV(linha.uf || linha.UF || ufAtiva),
@@ -2466,7 +2469,9 @@ function executarExportacaoCSVNativa() {
       linesCSVGeral.push("");
       linesCSVGeral.push("");
       
-      // Seção 2: Detalhamento de Leituras (Os bipes individuais de caixas cruzados na nuvem)
+      // ===================================================================
+      // SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (BIPES INDIVIDUAIS CAIXA A CAIXA)
+      // ===================================================================
       linesCSVGeral.push("=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===");
       linesCSVGeral.push([
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST", 
@@ -2502,15 +2507,15 @@ function executarExportacaoCSVNativa() {
       document.body.appendChild(linkDownload);
       linkDownload.click();
       document.body.removeChild(linkDownload);
-      console.log(`[CSV] Relatório completo em lote compilado com sucesso pela rede.`);
+      console.log(`[CSV ENGINE] Relatório unificado massivo gerado pela rede com sucesso.`);
     } else {
-      // Caso a rede retorne um erro explícito imediato, aciona o Autosave de RAM local de segurança
+      // Caso ocorra falha de conexão imediata, aciona o gerador local via RAM
       gerarDownloadResumoGerencialRAM("FALLBACK_POR_RETORNO_DE_ERRO_DE_REDE");
     }
     delete window[callbackExportUnificadoName];
   };
 
-  // Dispara a requisição assíncrona baseada nas regras de UFs da Torre de Controle
+  // Envia as diretrizes via injeção assíncrona JSONP utilizando a nova estrutura de dados rápida do servidor
   const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO + 
     "?action=exportarDetalladoEmLoteCSV" + 
     "&romaneios=" + encodeURIComponent(listaRomaneiosIds) + 
@@ -2522,6 +2527,7 @@ function executarExportacaoCSVNativa() {
   scriptExportLoteTag.onload = function() { if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag); };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
