@@ -2302,7 +2302,25 @@ function executarExportacaoCSVNativa() {
     return;
   }
 
-  const listaRomaneiosIds = CACHE_DADOS_CSV_MIGRACAO.map(r => r.numRomaneio).filter(Boolean).join(",");
+  // Localize e substitua o início da geração da lista de IDs por esta versão protegida:
+
+// Tenta capturar numRomaneio ou romaneio de dentro do objeto do cache
+const listaRomaneiosIds = CACHE_DADOS_CSV_MIGRACAO
+  .map(r => r.numRomaneio || r.romaneio || r.id)
+  .filter(Boolean)
+  .join(",");
+
+console.log("[DEBUG CSV] IDs de Romaneios enviados para o backend:", listaRomaneiosIds);
+
+if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
+  alert("⚠️ Atenção: Os romaneios carregados não possuem um ID/Número válido para consulta.");
+  if (btnCsv) {
+    btnCsv.disabled = false;
+    btnCsv.innerHTML = originalText;
+  }
+  return;
+}
+
   const ufAtiva = document.getElementById("filtroUF").value || "GERAL";
 
   const btnCsv = document.querySelector("button[onclick='executarExportacaoCSVNativa()']");
