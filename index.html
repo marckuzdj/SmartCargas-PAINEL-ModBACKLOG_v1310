@@ -2360,12 +2360,18 @@ function executarExportacaoCSVNativa() {
       const regexPontoVirgula = /;/g;
       const regexAspas = /"/g;
 
-      const formatarCelulaCSV = (valor) => {
-        if (valor === undefined || valor === null) return '""';
-        let texto = valor.toString().trim();
-        if (texto === "") return '""';
-        return `"${texto.replace(regexPontoVirgula, ",").replace(regexAspas, '""')}"`;
-      };
+	const formatarCelulaCSV = (valor) => {
+	  if (valor === undefined || valor === null) return '';
+	  let texto = valor.toString().trim();
+	  if (texto === "") return '';
+	  
+	  // Se o campo contiver ponto e vírgula, quebra de linha ou aspas, trata corretamente com padrão RFC 4180
+	  if (texto.includes(';') || texto.includes('"') || texto.includes('\n') || texto.includes('\r')) {
+	    return `"${texto.replace(/"/g, '""')}"`;
+	  }
+	  
+	  return texto;
+	};
 
       // ===================================================================
       // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS'
