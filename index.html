@@ -2297,7 +2297,7 @@ function fecharSubModalDetalhes() {
 function executarExportacaoCSVNativa() {
   console.log("[CSV] Iniciando compilação unificada das abas ROMANEIOS, DETALHADO e PENDENTES...");
 
-  // 1. Captura compatível de canal duplo em RAM (Injeção Cirúrgica V13.8)
+  // 1. Captura compatível de canal duplo em RAM
   const cacheRomaneiosMestre = (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO && window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length > 0)
     ? window.CACHE_DADOS_CSV_MIGRACAO_BRUTO
     : (window.CACHE_DADOS_CSV_MIGRACAO || CACHE_DADOS_CSV_MIGRACAO || []);
@@ -2316,7 +2316,6 @@ function executarExportacaoCSVNativa() {
     if (!r) return null;
     const valorDireto = r.numRomaneio || r.NUMROMANEIO || r.romaneio || r.numRom || r.numROM || r.NumROM;
     if (valorDireto) return valorDireto;
-
     const chavesObjeto = Object.keys(r);
     for (let k of chavesObjeto) {
       if (k.toLowerCase().includes("rom") && r[k]) return r[k];
@@ -2354,32 +2353,29 @@ function executarExportacaoCSVNativa() {
 
     if (resposta && resposta.success) {
       const listaRom = resposta.dadosRomaneios || [];
-      const listaDetMatriz = resposta.dadosMatriz || []; 
-      
-      // EXPRESSÕES REGULARES COMPILADAS FORA DO LOOP
-      const regexPontoVirgula = /;/g;
-      const regexAspas = /"/g;
+      const listaDetMatriz = resposta.dadosMatriz || [];
 
-	const formatarCelulaCSV = (valor) => {
-	  if (valor === undefined || valor === null) return '';
-	  let texto = valor.toString().trim();
-	  if (texto === "") return '';
-	  
-	  // Se o campo contiver ponto e vírgula, quebra de linha ou aspas, trata corretamente com padrão RFC 4180
-	  if (texto.includes(';') || texto.includes('"') || texto.includes('\n') || texto.includes('\r')) {
-	    return `"${texto.replace(/"/g, '""')}"`;
-	  }
-	  
-	  return texto;
-	};
+      // 🚀 FUNÇÃO DE SANITIZAÇÃO CORRIGIDA (PADRÃO CIRÚRGICO RFC 4180)
+      // Mantém o alinhamento de colunas mesmo se o campo contiver ponto e vírgula original da planilha
+      const formatarCelulaCSV = (valor) => {
+        if (valor === undefined || valor === null) return '';
+        let texto = valor.toString().trim();
+        if (texto === "") return '';
+        
+        // Se contiver ponto e vírgula, aspas ou quebras de linha, isola o bloco entre aspas duplas de controle
+        if (texto.includes(';') || texto.includes('"') || texto.includes('\n') || texto.includes('\r')) {
+          return `"${texto.replace(/"/g, '""')}"`;
+        }
+        return texto;
+      };
 
       // ===================================================================
       // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS'
       // ===================================================================
       const cabecalhoSecao1 = "=== SEÇÃO 1: RESUMO GERENCIAL ===\n" + [
-        "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", 
-        "Conferencia", "OBS", "ENDERECO", "ASSINATURA", "STATUS", 
-        "INTERCORRENCIAS", "EVIDENCIAS", "DT_IMPORT", "DISPATCH", "UF", "ORIGEM_ESTEIRA"
+        "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", 
+        "OBS", "ENDERECO", "ASSINATURA", "STATUS", "INTERCORRENCIAS", 
+        "EVIDENCIAS", "DT_IMPORT", "DISPATCH", "UF", "ORIGEM_ESTEIRA"
       ].join(";");
 
       const dadosParaSecao1 = listaRom.length > 0 ? listaRom : idsExtraidos.map((id, index) => {
@@ -2409,20 +2405,20 @@ function executarExportacaoCSVNativa() {
         const origemMestre = (ehConcluido || linha.origemDados === "DETALHADO") ? "DETALHADO" : "PENDENTES";
 
         return [
-          formatarCelulaCSV(linha.numRomaneio), 
-          formatarCelulaCSV(linha.pedidos), 
+          formatarCelulaCSV(linha.numRomaneio),
+          formatarCelulaCSV(linha.pedidos),
           formatarCelulaCSV(linha.volumes),
-          formatarCelulaCSV(linha.operador), 
-          formatarCelulaCSV(linha.transp), 
+          formatarCelulaCSV(linha.operador),
+          formatarCelulaCSV(linha.transp),
           formatarCelulaCSV(linha.conferencia),
-          formatarCelulaCSV(linha.obs), 
-          formatarCelulaCSV(linha.endereco), 
+          formatarCelulaCSV(linha.obs),
+          formatarCelulaCSV(linha.endereco),
           formatarCelulaCSV(linha.assinatura),
-          formatarCelulaCSV(linha.status), 
-          formatarCelulaCSV(linha.intercorrencias), 
+          formatarCelulaCSV(linha.status),
+          formatarCelulaCSV(linha.intercorrencias),
           formatarCelulaCSV(linha.evidencias),
-          formatarCelulaCSV(linha.dtImport || "N/A"), 
-          formatarCelulaCSV(linha.dispatch || "N/A"), 
+          formatarCelulaCSV(linha.dtImport || "N/A"),
+          formatarCelulaCSV(linha.dispatch || "N/A"),
           formatarCelulaCSV(linha.uf || ufAtiva),
           formatarCelulaCSV(origemMestre)
         ].join(";");
@@ -2432,23 +2428,23 @@ function executarExportacaoCSVNativa() {
       // SEÇÃO B: COMPONENTES DA ESTEIRA - LEITURA DA MATRIZ COMPACTA V2
       // ===================================================================
       const cabecalhoSecao2 = "=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===\n" + [
-        "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST", 
-        "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA", "DATA_OPERADOR", "ORIGEM_DADOS"
+        "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST",
+        "NF_LAST", "VOLUMES", "CONFERENTE", "DATA_CONFERENCIA",
+        "DATA_OPERADOR", "ORIGEM_DADOS"
       ].join(";");
 
-      // 🚀 CORREÇÃO EXATA DOS ÍNDICES DA MATRIZ PURA DETALHADA
       const linhasSecao2 = listaDetMatriz.map(linhaArray => {
         return [
-          formatarCelulaCSV(linhaArray[0]),  // romaneio
-          formatarCelulaCSV(linhaArray[1]),  // ov
-          formatarCelulaCSV(linhaArray[2]),  // fornecCross
-          formatarCelulaCSV(linhaArray[3]),  // nfCross
-          formatarCelulaCSV(linhaArray[4]),  // fornecLast
-          formatarCelulaCSV(linhaArray[5]),  // nfLast
-          formatarCelulaCSV(linhaArray[6]),  // volumes
-          formatarCelulaCSV(linhaArray[7]),  // conferente
-          formatarCelulaCSV(linhaArray[8]),  // dataConf
-          formatarCelulaCSV(linhaArray[9]),  // dataOperador
+          formatarCelulaCSV(linhaArray[0]), // romaneio
+          formatarCelulaCSV(linhaArray[1]), // ov
+          formatarCelulaCSV(linhaArray[2]), // fornecCross
+          formatarCelulaCSV(linhaArray[3]), // nfCross
+          formatarCelulaCSV(linhaArray[4]), // fornecLast
+          formatarCelulaCSV(linhaArray[5]), // nfLast
+          formatarCelulaCSV(linhaArray[6]), // volumes
+          formatarCelulaCSV(linhaArray[7]), // conferente
+          formatarCelulaCSV(linhaArray[8]), // dataConf
+          formatarCelulaCSV(linhaArray[9]), // dataOperador
           formatarCelulaCSV(linhaArray[10]) // tipoOrigem
         ].join(";");
       }).join("\n");
@@ -2461,37 +2457,33 @@ function executarExportacaoCSVNativa() {
 
       const linkDownload = document.createElement("a");
       const dataCarimbo = new Date().toISOString().split('T')[0];
-
       linkDownload.href = URL.createObjectURL(blobCSV);
       linkDownload.setAttribute("download", `RELATORIO_UNIFICADO_PDC_${ufAtiva}_${dataCarimbo}.csv`);
-      
-      // 🚀 CORREÇÃO CIRÚRGICA: Corrigido de style.style.display para style.display
       linkDownload.style.display = "none";
-      
       document.body.appendChild(linkDownload);
       linkDownload.click();
       document.body.removeChild(linkDownload);
       console.log(`[CSV] Relatório unificado em Matriz Compacta gerado com sucesso.`);
-
     } else {
       alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro de timeout."));
     }
     delete window[callbackExportUnificadoName];
   };
 
-  const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO + 
-    "?action=exportarDetalladoEmLoteCSV" + 
-    "&romaneios=" + encodeURIComponent(listaRomaneiosIds) + 
+  const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO +
+    "?action=exportarDetalladoEmLoteCSV" +
+    "&romaneios=" + encodeURIComponent(listaRomaneiosIds) +
     "&callback=" + callbackExportUnificadoName;
 
   const scriptExportLoteTag = document.createElement("script");
   scriptExportLoteTag.src = urlCompletaExportLote;
   scriptExportLoteTag.async = true;
-  scriptExportLoteTag.onload = function() { 
-    if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag); 
+  scriptExportLoteTag.onload = function() {
+    if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag);
   };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
