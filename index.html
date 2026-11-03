@@ -682,7 +682,7 @@
     
     <!-- Subtítulo / Versão do Painel (Texto Cinza e Discreto abaixo da logo) -->
     <p class="brand-subtitle" style="margin: 0; padding: 0; font-size: 0.875rem; color: #6E6E73; font-weight: 500; letter-spacing: 0.3px;">
-        PAINEL ADMINISTRATIVO v202609.2
+        PAINEL ADMINISTRATIVO v202611.1
     </p>
 
 </div>
@@ -2329,19 +2329,7 @@ function executarExportacaoCSVNativa() {
     .filter(id => id !== "")
     .join(",");
 
-  // ... Seu código anterior idêntico (mapeamento, remoção de decimais, etc.)
-
   console.log("[DEBUG CSV] IDs de Romaneios extraídos do cache para auditoria:", listaRomaneiosIds);
-
-  // 🚀 ATUALIZAÇÃO CIRÚRGICA: Adicione esta trava para proteger contra estouro de URL GET
-  if (encodeURIComponent(listaRomaneiosIds).length > 6000) {
-    alert("⚠️ Lote excessivamente grande para exportação unificada direta. Por favor, filtre um grupo menor de romaneios na tela antes de exportar.");
-    if (btnCsv) {
-      btnCsv.disabled = false;
-      btnCsv.innerHTML = originalText;
-    }
-    return;
-  }
 
   if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
     alert("⚠️ Os registros em memória não possuem códigos de romaneios válidos para auditoria.");
