@@ -2329,7 +2329,19 @@ function executarExportacaoCSVNativa() {
     .filter(id => id !== "")
     .join(",");
 
+  // ... Seu código anterior idêntico (mapeamento, remoção de decimais, etc.)
+
   console.log("[DEBUG CSV] IDs de Romaneios extraídos do cache para auditoria:", listaRomaneiosIds);
+
+  // 🚀 ATUALIZAÇÃO CIRÚRGICA: Adicione esta trava para proteger contra estouro de URL GET
+  if (encodeURIComponent(listaRomaneiosIds).length > 6000) {
+    alert("⚠️ Lote excessivamente grande para exportação unificada direta. Por favor, filtre um grupo menor de romaneios na tela antes de exportar.");
+    if (btnCsv) {
+      btnCsv.disabled = false;
+      btnCsv.innerHTML = originalText;
+    }
+    return;
+  }
 
   if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
     alert("⚠️ Os registros em memória não possuem códigos de romaneios válidos para auditoria.");
