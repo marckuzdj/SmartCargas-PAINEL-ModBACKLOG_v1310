@@ -2295,7 +2295,7 @@ function fecharSubModalDetalhes() {
 // 🚀 FRONTEND ULTRA-COMPACTO V2 (CORREÇÃO DE SINTAXE DE ESTILO & ÍNDICES)
 // =======================================================================
 function executarExportacaoCSVNativa() {
-  console.log("[CSV] Iniciando compilação unificada das abas ROMANEIOS, DETALHADO e PENDENTES...");
+  console.log("[CSV] Iniciando compilação unificada com otimização híbrida de canal...");
 
   // 1. Captura compatível de canal duplo em RAM
   const cacheRomaneiosMestre = (window.CACHE_DADOS_CSV_MIGRACAO_BRUTO && window.CACHE_DADOS_CSV_MIGRACAO_BRUTO.length > 0)
@@ -2311,40 +2311,55 @@ function executarExportacaoCSVNativa() {
   const btnCsv = document.querySelector("button[onclick='executarExportacaoCSVNativa()']");
   const originalText = btnCsv ? btnCsv.innerHTML : "Exportar CSV";
 
-  // 3. Mapeia os IDs baseado no repositório ativo com varredura tolerante a chaves ocultas
-  const idsExtraidos = cacheRomaneiosMestre.map(r => {
-    if (!r) return null;
-    const valorDireto = r.numRomaneio || r.NUMROMANEIO || r.romaneio || r.numRom || r.numROM || r.NumROM;
-    if (valorDireto) return valorDireto;
-    const chavesObjeto = Object.keys(r);
-    for (let k of chavesObjeto) {
-      if (k.toLowerCase().includes("rom") && r[k]) return r[k];
+  // 3. Segmenta os IDs e define as esteiras alvo diretamente na RAM antes de enviar
+  const romaneiosParaDetalhado = [];
+  const romaneiosParaPendentes = [];
+  const idsExtraidos = [];
+
+  cacheRomaneiosMestre.forEach(r => {
+    if (!r) return;
+    let id = r.numRomaneio || r.NUMROMANEIO || r.romaneio || r.numRom || r.numROM || r.NumROM;
+    
+    if (!id) {
+      const chavesObjeto = Object.keys(r);
+      for (let k of chavesObjeto) {
+        if (k.toLowerCase().includes("rom") && r[k]) {
+          id = r[k];
+          break;
+        }
+      }
     }
-    return null;
-  }).filter(Boolean);
 
-  // Remove pontos flutuantes decimais extras (.0)
-  const listaRomaneiosIds = idsExtraidos
-    .map(id => id.toString().replace(/\.0$/, "").trim().toUpperCase())
-    .filter(id => id !== "")
-    .join(",");
+    if (id) {
+      const idLimpo = id.toString().replace(/\.0$/, "").trim().toUpperCase();
+      if (idLimpo !== "") {
+        idsExtraidos.push(idLimpo);
 
-  console.log("[DEBUG CSV] IDs de Romaneios extraídos do cache para auditoria:", listaRomaneiosIds);
+        // 🔥 NOVA REGRA CIRÚRGICA DE DIRECIONAMENTO VIA RAM DO CLIENTE
+        const interc = (r.intercorrencias || r.INTERCORRENCIAS || "").toString().toUpperCase();
+        if (interc.includes("VOLUMES CONFIRMADOS / CONCLUÍDO")) {
+          romaneiosParaDetalhado.push(idLimpo);
+        } else {
+          romaneiosParaPendentes.push(idLimpo);
+        }
+      }
+    }
+  });
 
+  const listaRomaneiosIds = idsExtraidos.join(",");
   if (!listaRomaneiosIds || listaRomaneiosIds.trim() === "") {
     alert("⚠️ Os registros em memória não possuem códigos de romaneios válidos para auditoria.");
     return;
   }
 
   const ufAtiva = document.getElementById("filtroUF").value || "GERAL";
-
   if (btnCsv) {
     btnCsv.disabled = true;
     btnCsv.innerHTML = "<span>⏳ Consolidando Relatório...</span>";
   }
 
   const callbackExportUnificadoName = "cbExportUnificado_" + Date.now();
-
+  
   window[callbackExportUnificadoName] = function(resposta) {
     if (btnCsv) {
       btnCsv.disabled = false;
@@ -2352,17 +2367,13 @@ function executarExportacaoCSVNativa() {
     }
 
     if (resposta && resposta.success) {
-      const listaRom = resposta.dadosRomaneios || [];
       const listaDetMatriz = resposta.dadosMatriz || [];
 
-      // 🚀 FUNÇÃO DE SANITIZAÇÃO CORRIGIDA (PADRÃO CIRÚRGICO RFC 4180)
-      // Mantém o alinhamento de colunas mesmo se o campo contiver ponto e vírgula original da planilha
+      // 🔥 FUNÇÃO DE SANITIZAÇÃO PADRÃO RFC 4180
       const formatarCelulaCSV = (valor) => {
         if (valor === undefined || valor === null) return '';
         let texto = valor.toString().trim();
         if (texto === "") return '';
-        
-        // Se contiver ponto e vírgula, aspas ou quebras de linha, isola o bloco entre aspas duplas de controle
         if (texto.includes(';') || texto.includes('"') || texto.includes('\n') || texto.includes('\r')) {
           return `"${texto.replace(/"/g, '""')}"`;
         }
@@ -2370,62 +2381,43 @@ function executarExportacaoCSVNativa() {
       };
 
       // ===================================================================
-      // SEÇÃO A: RELATÓRIO GERENCIAL - ABAS 'ROMANEIOS'
+      // SEÇÃO A: RELATÓRIO GERENCIAL - MONTADO 100% EM RAM (ZERO DELAY DO SERVIDOR)
       // ===================================================================
       const cabecalhoSecao1 = "=== SEÇÃO 1: RESUMO GERENCIAL ===\n" + [
-        "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia", 
-        "OBS", "ENDERECO", "ASSINATURA", "STATUS", "INTERCORRENCIAS", 
+        "NumROM", "TTPedidos", "TTVol", "Operador", "Transp", "Conferencia",
+        "OBS", "ENDERECO", "ASSINATURA", "STATUS", "INTERCORRENCIAS",
         "EVIDENCIAS", "DT_IMPORT", "DISPATCH", "UF", "ORIGEM_ESTEIRA"
       ].join(";");
 
-      const dadosParaSecao1 = listaRom.length > 0 ? listaRom : idsExtraidos.map((id, index) => {
-        const itemLocal = cacheRomaneiosMestre[index] || {};
-        return {
-          numRomaneio: id,
-          pedidos: itemLocal.pedidos || itemLocal.PEDIDOS || itemLocal.TTPedidos || 0,
-          volumes: itemLocal.volumes || itemLocal.VOLUMES || itemLocal.TTVol || 0,
-          operador: itemLocal.operador || itemLocal.OPERADOR || "N/A",
-          transp: itemLocal.transp || itemLocal.TRANSP || "N/A",
-          conferencia: itemLocal.conferencia || itemLocal.CONFERENCIA || "N/A",
-          obs: itemLocal.obs || itemLocal.OBS || "N/A",
-          endereco: itemLocal.endereco || itemLocal.ENDERECO || "N/A",
-          assinatura: itemLocal.assinatura || itemLocal.ASSINATURA || "N/A",
-          status: itemLocal.status || itemLocal.STATUS || "PENDENTE",
-          intercorrencias: itemLocal.intercorrencias || itemLocal.INTERCORRENCIAS || "N/A",
-          evidencias: itemLocal.evidencias || itemLocal.EVIDENCIAS || "N/A",
-          dtImport: itemLocal.dtImport || itemLocal.DT_IMPORT || "N/A",
-          dispatch: itemLocal.dispatch || itemLocal.DISPATCH || "N/A",
-          uf: itemLocal.uf || itemLocal.UF || ufAtiva
-        };
-      });
+      const linhasSecao1 = cacheRomaneiosMestre.map((itemLocal, index) => {
+        const idRom = idsExtraidos[index] || "N/A";
+        const txtInterc = (itemLocal.intercorrencias || itemLocal.INTERCORRENCIAS || "").toString().toUpperCase();
+        const ehDetalhado = txtInterc.includes("VOLUMES CONFIRMADOS / CONCLUÍDO");
+        const origemMestre = ehDetalhado ? "DETALHADO" : "PENDENTES";
 
-      const linhasSecao1 = dadosParaSecao1.map(linha => {
-        const txtStatusUpper = (linha.status || "").toString().toUpperCase();
-        const ehConcluido = txtStatusUpper.includes('CONCLUIDO') || txtStatusUpper.includes('100%');
-        const origemMestre = (ehConcluido || linha.origemDados === "DETALHADO") ? "DETALHADO" : "PENDENTES";
-
+        // Remove links de fórmulas pegando apenas o texto cru do cache
         return [
-          formatarCelulaCSV(linha.numRomaneio),
-          formatarCelulaCSV(linha.pedidos),
-          formatarCelulaCSV(linha.volumes),
-          formatarCelulaCSV(linha.operador),
-          formatarCelulaCSV(linha.transp),
-          formatarCelulaCSV(linha.conferencia),
-          formatarCelulaCSV(linha.obs),
-          formatarCelulaCSV(linha.endereco),
-          formatarCelulaCSV(linha.assinatura),
-          formatarCelulaCSV(linha.status),
-          formatarCelulaCSV(linha.intercorrencias),
-          formatarCelulaCSV(linha.evidencias),
-          formatarCelulaCSV(linha.dtImport || "N/A"),
-          formatarCelulaCSV(linha.dispatch || "N/A"),
-          formatarCelulaCSV(linha.uf || ufAtiva),
+          formatarCelulaCSV(idRom),
+          formatarCelulaCSV(itemLocal.pedidos || itemLocal.PEDIDOS || itemLocal.TTPedidos || 0),
+          formatarCelulaCSV(itemLocal.volumes || itemLocal.VOLUMES || itemLocal.TTVol || 0),
+          formatarCelulaCSV(itemLocal.operador || itemLocal.OPERADOR || "N/A"),
+          formatarCelulaCSV(itemLocal.transp || itemLocal.TRANSP || "N/A"),
+          formatarCelulaCSV(itemLocal.conferencia || itemLocal.CONFERENCIA || "N/A"),
+          formatarCelulaCSV(itemLocal.obs || itemLocal.OBS || "N/A"),
+          formatarCelulaCSV(itemLocal.endereco || itemLocal.ENDERECO || "N/A"),
+          formatarCelulaCSV(itemLocal.assinatura || itemLocal.ASSINATURA || "N/A"), // Apenas o texto do link
+          formatarCelulaCSV(itemLocal.status || itemLocal.STATUS || "PENDENTE"),
+          formatarCelulaCSV(itemLocal.intercorrencias || itemLocal.INTERCORRENCIAS || ""),
+          formatarCelulaCSV(itemLocal.evidencias || itemLocal.EVIDENCIAS || "N/A"), // Apenas o texto do link
+          formatarCelulaCSV(itemLocal.dtImport || itemLocal.DT_IMPORT || "N/A"),
+          formatarCelulaCSV(itemLocal.dispatch || itemLocal.DISPATCH || "N/A"),
+          formatarCelulaCSV(itemLocal.uf || itemLocal.UF || ufAtiva),
           formatarCelulaCSV(origemMestre)
         ].join(";");
       }).join("\n");
 
       // ===================================================================
-      // SEÇÃO B: COMPONENTES DA ESTEIRA - LEITURA DA MATRIZ COMPACTA V2
+      // SEÇÃO B: COMPONENTES DA ESTEIRA - MATRIZ RETORNADA PELO SERVIDOR
       // ===================================================================
       const cabecalhoSecao2 = "=== SEÇÃO 2: DETALHAMENTO DE LEITURAS EM ESTEIRA (CONCLUÍDOS E PENDENTES) ===\n" + [
         "ROMANEIO", "OV", "FORNEC_CROSS", "NF_CROSS", "FORNEC_LAST",
@@ -2435,22 +2427,23 @@ function executarExportacaoCSVNativa() {
 
       const linhasSecao2 = listaDetMatriz.map(linhaArray => {
         return [
-          formatarCelulaCSV(linhaArray[0]), // romaneio
-          formatarCelulaCSV(linhaArray[1]), // ov
-          formatarCelulaCSV(linhaArray[2]), // fornecCross
-          formatarCelulaCSV(linhaArray[3]), // nfCross
-          formatarCelulaCSV(linhaArray[4]), // fornecLast
-          formatarCelulaCSV(linhaArray[5]), // nfLast
-          formatarCelulaCSV(linhaArray[6]), // volumes
-          formatarCelulaCSV(linhaArray[7]), // conferente
-          formatarCelulaCSV(linhaArray[8]), // dataConf
-          formatarCelulaCSV(linhaArray[9]), // dataOperador
-          formatarCelulaCSV(linhaArray[10]) // tipoOrigem
+          formatarCelulaCSV(linhaArray[0]), 
+          formatarCelulaCSV(linhaArray[1]), 
+          formatarCelulaCSV(linhaArray[2]), 
+          formatarCelulaCSV(linhaArray[3]), 
+          formatarCelulaCSV(linhaArray[4]), 
+          formatarCelulaCSV(linhaArray[5]), 
+          formatarCelulaCSV(linhaArray[6]), 
+          formatarCelulaCSV(linhaArray[7]), 
+          formatarCelulaCSV(linhaArray[8]), 
+          formatarCelulaCSV(linhaArray[9]), 
+          formatarCelulaCSV(linhaArray[10])
         ].join(";");
       }).join("\n");
 
+      // Consolidação dos blocos gerados
       const conteudoCSVCompleto = cabecalhoSecao1 + "\n" + linhasSecao1 + "\n\n\n" + cabecalhoSecao2 + "\n" + linhasSecao2;
-
+      
       const blobCSV = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), conteudoCSVCompleto], {
         type: "text/csv;charset=utf-8;"
       });
@@ -2463,16 +2456,18 @@ function executarExportacaoCSVNativa() {
       document.body.appendChild(linkDownload);
       linkDownload.click();
       document.body.removeChild(linkDownload);
-      console.log(`[CSV] Relatório unificado em Matriz Compacta gerado com sucesso.`);
+      console.log(`[CSV] Relatório unificado otimizado gerado com sucesso.`);
     } else {
       alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro de timeout."));
     }
     delete window[callbackExportUnificadoName];
   };
 
+  // 🔥 ENVIO DIRECIONADO: O frontend passa os blocos de romaneios separados por prioridade de aba para o backend
   const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO +
     "?action=exportarDetalladoEmLoteCSV" +
-    "&romaneios=" + encodeURIComponent(listaRomaneiosIds) +
+    "&romaneiosDetalhado=" + encodeURIComponent(romaneiosParaDetalhado.join(",")) +
+    "&romaneiosPendentes=" + encodeURIComponent(romaneiosParaPendentes.join(",")) +
     "&callback=" + callbackExportUnificadoName;
 
   const scriptExportLoteTag = document.createElement("script");
@@ -2483,6 +2478,7 @@ function executarExportacaoCSVNativa() {
   };
   document.body.appendChild(scriptExportLoteTag);
 }
+
 
 
 
