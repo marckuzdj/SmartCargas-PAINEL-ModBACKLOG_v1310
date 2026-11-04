@@ -2344,8 +2344,39 @@ function executarExportacaoCSVNativa() {
   }
 
   const callbackExportUnificadoName = "cbExportUnificado_" + Date.now();
+  
+  // Tag do script em escopo visível para permitir remoção forçada em caso de timeout
+  let scriptExportLoteTag = null;
+
+  // 🕒 GATILHO DE TIMEOUT DEFENSIVO (4 minutos = 240.000 ms)
+  const tempoLimiteTimeout = setTimeout(function() {
+    console.warn(`[TIMEOUT] A extração unificada excedeu 4 minutos. Cancelando requisição...`);
+    
+    // 1. Destrói o callback global para ignorar respostas tardias do servidor
+    if (window[callbackExportUnificadoName]) {
+      delete window[callbackExportUnificadoName];
+    }
+    
+    // 2. Remove fisicamente a tag script pendente do corpo da página (aborto estrutural)
+    if (scriptExportLoteTag && scriptExportLoteTag.parentNode) {
+      scriptExportLoteTag.parentNode.removeChild(scriptExportLoteTag);
+    }
+    
+    // 3. Restaura os elementos interativos visuais da UI
+    if (btnCsv) {
+      btnCsv.disabled = false;
+      btnCsv.innerHTML = originalText;
+    }
+    
+    // 4. Dispara o alerta tático instrutivo para o operador logístico
+    alert("⏱️ Tempo limite atingido!\nA extração demorou mais de 4 minutos devido ao volume de registros nas abas históricas.\n\nPor favor, reduza o intervalo de dados ou filtre uma quantidade menor de romaneios e tente novamente.");
+  }, 240000);
+
 
   window[callbackExportUnificadoName] = function(resposta) {
+    // 🛡️ Sucesso chegou a tempo: Cancela imediatamente o cronômetro de estouro
+    clearTimeout(tempoLimiteTimeout);
+
     if (btnCsv) {
       btnCsv.disabled = false;
       btnCsv.innerHTML = originalText;
@@ -2356,13 +2387,11 @@ function executarExportacaoCSVNativa() {
       const listaDetMatriz = resposta.dadosMatriz || [];
 
       // 🚀 FUNÇÃO DE SANITIZAÇÃO CORRIGIDA (PADRÃO CIRÚRGICO RFC 4180)
-      // Mantém o alinhamento de colunas mesmo se o campo contiver ponto e vírgula original da planilha
       const formatarCelulaCSV = (valor) => {
         if (valor === undefined || valor === null) return '';
         let texto = valor.toString().trim();
         if (texto === "") return '';
         
-        // Se contiver ponto e vírgula, aspas ou quebras de linha, isola o bloco entre aspas duplas de controle
         if (texto.includes(';') || texto.includes('"') || texto.includes('\n') || texto.includes('\r')) {
           return `"${texto.replace(/"/g, '""')}"`;
         }
@@ -2465,9 +2494,12 @@ function executarExportacaoCSVNativa() {
       document.body.removeChild(linkDownload);
       console.log(`[CSV] Relatório unificado em Matriz Compacta gerado com sucesso.`);
     } else {
-      alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro de timeout."));
+      alert("❌ Falha de rede ao compilar pacote unificado: " + (resposta.error || "Erro interno do servidor."));
     }
-    delete window[callbackExportUnificadoName];
+    
+    if (window[callbackExportUnificadoName]) {
+      delete window[callbackExportUnificadoName];
+    }
   };
 
   const urlCompletaExportLote = ENDPOINT_REGIONAL_ATIVO +
@@ -2475,13 +2507,15 @@ function executarExportacaoCSVNativa() {
     "&romaneios=" + encodeURIComponent(listaRomaneiosIds) +
     "&callback=" + callbackExportUnificadoName;
 
-  const scriptExportLoteTag = document.createElement("script");
+  scriptExportLoteTag = document.createElement("script");
   scriptExportLoteTag.src = urlCompletaExportLote;
   scriptExportLoteTag.async = true;
   scriptExportLoteTag.onload = function() {
-    if (scriptExportLoteTag.parentNode) document.body.removeChild(scriptExportLoteTag);
-  };
-  document.body.appendChild(scriptExportLoteTag);
+    if (scriptExportLoteTag && scriptExportLoteTag.parentNode) {
+scriptExportLoteTag.parentNode.removeChild(scriptExportLoteTag);
+}
+};
+document.body.appendChild(scriptExportLoteTag);
 }
 
 
