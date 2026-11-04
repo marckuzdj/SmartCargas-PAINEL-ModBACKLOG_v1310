@@ -2464,17 +2464,17 @@ function executarExportacaoCSVNativa() {
 
       const linhasSecao2 = listaDetMatriz.map(linhaArray => {
         return [
-          formatarCelulaCSV(linhaArray[0]), // romaneio
-          formatarCelulaCSV(linhaArray[1]), // ov
-          formatarCelulaCSV(linhaArray[2]), // fornecCross
-          formatarCelulaCSV(linhaArray[3]), // nfCross
-          formatarCelulaCSV(linhaArray[4]), // fornecLast
-          formatarCelulaCSV(linhaArray[5]), // nfLast
-          formatarCelulaCSV(linhaArray[6]), // volumes
-          formatarCelulaCSV(linhaArray[7]), // conferente
-          formatarCelulaCSV(linhaArray[8]), // dataConf
-          formatarCelulaCSV(linhaArray[9]), // dataOperador
-          formatarCelulaCSV(linhaArray[10]) // tipoOrigem
+          formatarCelulaCSV(linhaArray[0]),  // romaneio
+          formatarCelulaCSV(linhaArray[1]),  // ov
+          formatarCelulaCSV(linhaArray[2]),  // fornecCross
+          formatarCelulaCSV(linhaArray[3]),  // nfCross
+          formatarCelulaCSV(linhaArray[4]),  // fornecLast
+          formatarCelulaCSV(linhaArray[5]),  // nfLast
+          formatarCelulaCSV(linhaArray[6]),  // volumes
+          formatarCelulaCSV(linhaArray[7]),  // conferente
+          formatarCelulaCSV(linhaArray[8]),  // dataConf
+          formatarCelulaCSV(linhaArray[9]),  // dataOperador
+          formatarCelulaCSV(linhaArray[10])  // tipoOrigem
         ].join(";");
       }).join("\n");
 
