@@ -2369,7 +2369,7 @@ function executarExportacaoCSVNativa() {
     }
     
     // 4. Dispara o alerta tático instrutivo para o operador logístico
-    alert("⏱️ Tempo limite atingido!\nA extração demorou mais de 4 minutos devido ao volume de registros nas abas históricas.\n\nPor favor, reduza o intervalo de dados ou filtre uma quantidade menor de romaneios e tente novamente.");
+    alert("⏱️ Tempo limite atingido!\nA extração demorou mais de 4 minutos devido ao volume de registros no histórico.\n\nPor favor, reduza o intervalo de datas ou filtre uma quantidade menor de romaneios e tente novamente.");
   }, 240000);
 
 
@@ -3762,7 +3762,7 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
 	  });
 	
 	  if (linhasDoArquivo.length <= 1) {
-	    alert(`⚠️ Nenhum saldo operacional retroativo qualificado como Backlog foi localizado para a transportadora ${nomeTransportadora} na massa de dados atual.`);
+	    alert(`⚠️ Não aplique filtros para extrair o backlog da transportadora ${nomeTransportadora} . Limpe a pesquisa > Selecione novamente a Regional > Extraia a base diretamente no card`);
 	    return;
 	  }
 	
